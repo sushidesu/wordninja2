@@ -1,0 +1,8 @@
+{
+  "name": "wordninja2",
+  "private": true,
+  "scripts": {
+    "mobile": "pnpm --filter @wordninja/mobile start",
+    "server": "pnpm --filter @wordninja/server dev"
+  }
+}
