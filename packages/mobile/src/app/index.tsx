@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -9,6 +8,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { AdaptiveScrollView } from '@/components/adaptive-scroll-view';
 
 type Player = {
   id: string;
@@ -252,7 +253,7 @@ export default function HomeScreen() {
           </Text>
           <Text style={styles.subtitle}>チーム対戦型推理ゲーム</Text>
 
-          <ScrollView style={styles.scrollArea} contentContainerStyle={styles.setupContent}>
+          <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.setupContent}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>参加者 ({setupPlayers.length}人)</Text>
             </View>
@@ -326,7 +327,7 @@ export default function HomeScreen() {
                 </View>
               )}
             </View>
-          </ScrollView>
+          </AdaptiveScrollView>
 
           <View style={styles.bottomAction}>
             <Pressable
@@ -402,7 +403,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.container}>
-          <ScrollView style={styles.scrollArea} contentContainerStyle={styles.resultContent}>
+          <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.resultContent}>
             <Text style={styles.resultTitle}>結果発表</Text>
             <Text style={styles.subtitle}>正体とお題を公開します</Text>
 
@@ -426,7 +427,7 @@ export default function HomeScreen() {
                 </View>
               </View>
             ))}
-          </ScrollView>
+          </AdaptiveScrollView>
 
           <View style={styles.bottomAction}>
             <Pressable style={styles.secondaryButton} onPress={restartGame}>
@@ -453,7 +454,7 @@ export default function HomeScreen() {
         </View>
 
         {gameState.phase === 'playing' && (
-          <ScrollView style={styles.scrollArea} contentContainerStyle={styles.gameContent}>
+          <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.gameContent}>
             <View style={styles.turnWrap}>
               <Text style={styles.turnLabel}>CURRENT TURN</Text>
               <Text style={styles.turnName}>{currentPlayer?.name}</Text>
@@ -510,7 +511,7 @@ export default function HomeScreen() {
                   );
                 })}
             </View>
-          </ScrollView>
+          </AdaptiveScrollView>
         )}
 
         {gameState.phase === 'voting' && currentQuestion && (
@@ -519,7 +520,7 @@ export default function HomeScreen() {
             <Text style={styles.votingQuestion}>{currentQuestion.text}</Text>
             <Text style={styles.turnHint}>全員の回答を入力してください</Text>
 
-            <ScrollView style={styles.voteList}>
+            <AdaptiveScrollView style={styles.voteList} contentContainerStyle={styles.voteListContent}>
               {gameState.players.map((player) => {
                 const isYes = currentVotes[player.id] === 'yes';
 
@@ -534,7 +535,7 @@ export default function HomeScreen() {
                   </View>
                 );
               })}
-            </ScrollView>
+            </AdaptiveScrollView>
 
             <Pressable style={styles.secondaryButton} onPress={submitVotes}>
               <Text style={styles.secondaryButtonText}>回答を確定して共有</Text>
@@ -574,8 +575,10 @@ const styles = StyleSheet.create({
   },
   scrollArea: {
     flex: 1,
+    marginHorizontal: -20,
   },
   setupContent: {
+    paddingHorizontal: 20,
     paddingBottom: 120,
   },
   sectionHeaderRow: {
@@ -839,6 +842,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   gameContent: {
+    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 24,
     gap: 22,
@@ -966,6 +970,10 @@ const styles = StyleSheet.create({
   voteList: {
     flex: 1,
     marginTop: 8,
+    marginHorizontal: -20,
+  },
+  voteListContent: {
+    paddingHorizontal: 20,
   },
   voteRow: {
     borderRadius: 12,
@@ -1001,6 +1009,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   resultContent: {
+    paddingHorizontal: 20,
     paddingBottom: 120,
     gap: 12,
   },
