@@ -2,7 +2,7 @@
   "name": "wordninja2",
   "private": true,
   "scripts": {
-    "mobile": "pnpm --filter @wordninja/mobile start",
+    "mobile": "pnpm --filter @wordninja/mobile start:tailscale",
     "server": "pnpm --filter @wordninja/server dev"
   }
 }

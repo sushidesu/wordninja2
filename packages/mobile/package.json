@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "start:tailscale": "REACT_NATIVE_PACKAGER_HOSTNAME=$(tailscale ip -4 | head -n1) expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
