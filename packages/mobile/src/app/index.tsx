@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdaptiveScrollView } from '@/components/adaptive-scroll-view';
+import { Colors, TeamColors } from '@/constants/theme';
 
 type Player = {
   id: string;
@@ -65,7 +66,6 @@ const TOPICS = [
 ];
 
 function generateTeams(teamCount: number, customTopics?: { teamA: string; teamB: string }): Team[] {
-  const teamColors = ['#dc2626', '#2563eb', '#16a34a', '#ca8a04'];
   const teamNames = ['赤チーム', '青チーム', '緑チーム', '黄チーム'];
   const selected = customTopics ?? TOPICS[Math.floor(Math.random() * TOPICS.length)];
   const topics = [selected.teamA, selected.teamB];
@@ -73,7 +73,7 @@ function generateTeams(teamCount: number, customTopics?: { teamA: string; teamB:
   return Array.from({ length: teamCount }, (_, index) => ({
     id: `team-${index}`,
     name: teamNames[index % teamNames.length],
-    color: teamColors[index % teamColors.length],
+    color: TeamColors[index % TeamColors.length],
     topic: topics[index % topics.length] ?? '???',
   }));
 }
@@ -264,7 +264,7 @@ export default function HomeScreen() {
                   value={player.name}
                   onChangeText={(value) => updatePlayerName(player.id, value)}
                   placeholder="名前を入力"
-                  placeholderTextColor="#71717a"
+                  placeholderTextColor={Colors.inkMute}
                   style={styles.playerInput}
                 />
                 <Pressable onPress={() => removePlayer(player.id)} style={styles.removeButton}>
@@ -303,8 +303,8 @@ export default function HomeScreen() {
                 <Switch
                   value={useCustomTopic}
                   onValueChange={setUseCustomTopic}
-                  trackColor={{ false: '#27272a', true: '#dc2626' }}
-                  thumbColor="#fafafa"
+                  trackColor={{ false: Colors.paperDeep, true: Colors.hero }}
+                  thumbColor={Colors.canvas}
                 />
               </View>
 
@@ -314,14 +314,14 @@ export default function HomeScreen() {
                     value={customTopicA}
                     onChangeText={setCustomTopicA}
                     placeholder="チームAのお題 (例: 犬)"
-                    placeholderTextColor="#71717a"
+                    placeholderTextColor={Colors.inkMute}
                     style={styles.topicInput}
                   />
                   <TextInput
                     value={customTopicB}
                     onChangeText={setCustomTopicB}
                     placeholder="チームBのお題 (例: 猫)"
-                    placeholderTextColor="#71717a"
+                    placeholderTextColor={Colors.inkMute}
                     style={styles.topicInput}
                   />
                 </View>
@@ -467,7 +467,7 @@ export default function HomeScreen() {
                 value={questionText}
                 onChangeText={setQuestionText}
                 placeholder="例: それは食べ物ですか？"
-                placeholderTextColor="#71717a"
+                placeholderTextColor={Colors.inkMute}
                 style={styles.questionInput}
                 multiline
               />
@@ -550,7 +550,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: Colors.canvas,
   },
   container: {
     flex: 1,
@@ -560,15 +560,15 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 38,
     fontWeight: '900',
-    color: '#fafafa',
+    color: Colors.ink,
     textAlign: 'center',
     letterSpacing: -1,
   },
   titleAccent: {
-    color: '#ef4444',
+    color: Colors.spark,
   },
   subtitle: {
-    color: '#a1a1aa',
+    color: Colors.inkSoft,
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 16,
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sectionTitle: {
-    color: '#fafafa',
+    color: Colors.ink,
     fontWeight: '700',
     fontSize: 18,
   },
@@ -599,9 +599,9 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#3f3f46',
-    backgroundColor: '#18181b',
-    color: '#fafafa',
+    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.paper,
+    color: Colors.ink,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -611,12 +611,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#18181b',
+    backgroundColor: Colors.paper,
     borderWidth: 1,
-    borderColor: '#27272a',
+    borderColor: Colors.paperDeep,
   },
   removeButtonText: {
-    color: '#f87171',
+    color: Colors.danger,
     fontSize: 24,
     marginTop: -2,
   },
@@ -624,25 +624,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: '#3f3f46',
+    borderColor: Colors.paperStrong,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 16,
   },
   addPlayerText: {
-    color: '#d4d4d8',
+    color: Colors.inkSoft,
     fontWeight: '600',
   },
   settingsCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#111111',
+    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.paper,
     padding: 14,
     gap: 10,
   },
   settingLabel: {
-    color: '#d4d4d8',
+    color: Colors.inkSoft,
     fontWeight: '500',
     marginTop: 4,
     marginBottom: 2,
@@ -656,18 +656,18 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 10,
     paddingVertical: 10,
-    backgroundColor: '#27272a',
+    backgroundColor: Colors.paperDeep,
     alignItems: 'center',
   },
   teamButtonActive: {
-    backgroundColor: '#dc2626',
+    backgroundColor: Colors.hero,
   },
   teamButtonText: {
-    color: '#a1a1aa',
+    color: Colors.inkSoft,
     fontWeight: '700',
   },
   teamButtonTextActive: {
-    color: '#fafafa',
+    color: Colors.canvas,
   },
   customTopicRow: {
     flexDirection: 'row',
@@ -682,9 +682,9 @@ const styles = StyleSheet.create({
   topicInput: {
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#3f3f46',
-    backgroundColor: '#18181b',
-    color: '#fafafa',
+    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.canvas,
+    color: Colors.ink,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -695,26 +695,26 @@ const styles = StyleSheet.create({
     bottom: 20,
   },
   primaryButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: Colors.hero,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 15,
   },
   primaryButtonText: {
-    color: '#fafafa',
+    color: Colors.canvas,
     fontSize: 18,
     fontWeight: '800',
   },
   secondaryButton: {
-    backgroundColor: '#f4f4f5',
+    backgroundColor: Colors.heroSoft,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
   },
   secondaryButtonText: {
-    color: '#111111',
+    color: Colors.flame,
     fontSize: 16,
     fontWeight: '800',
   },
@@ -726,14 +726,14 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   assignmentLabel: {
-    color: '#71717a',
+    color: Colors.inkSoft,
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.5,
   },
   assignmentName: {
-    color: '#fafafa',
+    color: Colors.ink,
     textAlign: 'center',
     marginTop: 8,
     fontSize: 34,
@@ -743,8 +743,8 @@ const styles = StyleSheet.create({
   hiddenCard: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#111111',
+    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.paper,
     minHeight: 260,
     alignItems: 'center',
     justifyContent: 'center',
@@ -755,38 +755,38 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   hiddenCardTitle: {
-    color: '#d4d4d8',
+    color: Colors.inkSoft,
     fontSize: 17,
     fontWeight: '700',
   },
   hiddenCardNote: {
-    color: '#71717a',
+    color: Colors.inkMute,
     marginTop: 8,
     fontSize: 12,
   },
   revealedCard: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#fafafa',
-    backgroundColor: '#f4f4f5',
+    borderColor: Colors.hero,
+    backgroundColor: Colors.heroSoft,
     minHeight: 260,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
   },
   revealedLabel: {
-    color: '#52525b',
+    color: Colors.flame,
     fontWeight: '700',
     marginBottom: 4,
   },
   revealedTopic: {
-    color: '#111111',
+    color: Colors.ink,
     fontSize: 44,
     fontWeight: '900',
     marginBottom: 18,
   },
   hideLink: {
-    color: '#71717a',
+    color: Colors.inkSoft,
     fontWeight: '600',
   },
   assignmentBottom: {
@@ -794,7 +794,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   assignmentHint: {
-    color: '#71717a',
+    color: Colors.inkSoft,
     textAlign: 'center',
     fontSize: 13,
   },
@@ -807,15 +807,15 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#27272a',
+    backgroundColor: Colors.paperDeep,
   },
   progressDotDone: {
-    backgroundColor: '#3f3f46',
+    backgroundColor: Colors.paperStrong,
   },
   progressDotActive: {
     width: 26,
     borderRadius: 4,
-    backgroundColor: '#dc2626',
+    backgroundColor: Colors.hero,
   },
   gameHeader: {
     flexDirection: 'row',
@@ -823,21 +823,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#18181b',
+    borderBottomColor: Colors.paperDeep,
   },
   gameHeaderTitle: {
-    color: '#fafafa',
+    color: Colors.ink,
     fontSize: 20,
     fontWeight: '900',
   },
   endGameButton: {
     borderRadius: 999,
-    backgroundColor: '#27272a',
+    backgroundColor: Colors.paperDeep,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
   endGameButtonText: {
-    color: '#e4e4e7',
+    color: Colors.inkSoft,
     fontSize: 12,
     fontWeight: '600',
   },
@@ -852,8 +852,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   turnLabel: {
-    color: '#f87171',
-    backgroundColor: '#450a0a',
+    color: Colors.flame,
+    backgroundColor: Colors.heroSoft,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 999,
@@ -863,30 +863,30 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   turnName: {
-    color: '#fafafa',
+    color: Colors.ink,
     fontSize: 42,
     fontWeight: '900',
     marginBottom: 8,
   },
   turnHint: {
-    color: '#a1a1aa',
+    color: Colors.inkSoft,
     fontSize: 13,
   },
   questionCard: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#111111',
+    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.paper,
     padding: 14,
     gap: 10,
   },
   questionInput: {
     minHeight: 90,
     borderWidth: 1,
-    borderColor: '#3f3f46',
+    borderColor: Colors.paperDeep,
     borderRadius: 12,
-    backgroundColor: '#000000',
-    color: '#fafafa',
+    backgroundColor: Colors.canvas,
+    color: Colors.ink,
     paddingHorizontal: 12,
     paddingVertical: 10,
     textAlignVertical: 'top',
@@ -895,29 +895,29 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   historyTitle: {
-    color: '#71717a',
+    color: Colors.inkSoft,
     fontWeight: '800',
     fontSize: 12,
     letterSpacing: 1.1,
   },
   emptyHistory: {
-    color: '#71717a',
+    color: Colors.inkMute,
     fontStyle: 'italic',
   },
   historyItem: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#09090b',
+    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.paper,
     padding: 12,
   },
   historyMeta: {
-    color: '#a1a1aa',
+    color: Colors.inkSoft,
     fontSize: 12,
     marginBottom: 4,
   },
   historyQuestion: {
-    color: '#fafafa',
+    color: Colors.ink,
     fontWeight: '600',
     marginBottom: 10,
   },
@@ -929,8 +929,8 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#000000',
+    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.canvas,
     paddingVertical: 10,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -938,15 +938,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   yesText: {
-    color: '#22c55e',
+    color: Colors.hero,
     fontWeight: '800',
   },
   noText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontWeight: '800',
   },
   voteCount: {
-    color: '#fafafa',
+    color: Colors.ink,
     fontSize: 18,
     fontWeight: '900',
   },
@@ -957,13 +957,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   votingLabel: {
-    color: '#ef4444',
+    color: Colors.spark,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1,
   },
   votingQuestion: {
-    color: '#fafafa',
+    color: Colors.ink,
     fontSize: 30,
     fontWeight: '900',
   },
@@ -978,8 +978,8 @@ const styles = StyleSheet.create({
   voteRow: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#111111',
+    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.paper,
     padding: 12,
     marginBottom: 8,
     flexDirection: 'row',
@@ -987,7 +987,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   votePlayerName: {
-    color: '#fafafa',
+    color: Colors.ink,
     fontWeight: '700',
     fontSize: 16,
   },
@@ -999,13 +999,13 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   voteYes: {
-    backgroundColor: '#16a34a',
+    backgroundColor: Colors.hero,
   },
   voteNo: {
-    backgroundColor: '#dc2626',
+    backgroundColor: Colors.danger,
   },
   voteButtonText: {
-    color: '#fafafa',
+    color: Colors.canvas,
     fontWeight: '800',
   },
   resultContent: {
@@ -1014,7 +1014,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   resultTitle: {
-    color: '#fafafa',
+    color: Colors.ink,
     fontSize: 36,
     fontWeight: '900',
     textAlign: 'center',
@@ -1023,8 +1023,8 @@ const styles = StyleSheet.create({
   teamCard: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#27272a',
-    backgroundColor: '#111111',
+    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.paper,
     overflow: 'hidden',
   },
   teamCardHeader: {
@@ -1035,13 +1035,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   teamName: {
-    color: '#ffffff',
+    color: Colors.canvas,
     fontWeight: '900',
     fontSize: 18,
   },
   teamTopic: {
-    color: '#ffffff',
-    backgroundColor: '#00000055',
+    color: Colors.canvas,
+    backgroundColor: Colors.overlay,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
@@ -1063,14 +1063,14 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#27272a',
+    backgroundColor: Colors.heroSoft,
   },
   playerAvatarText: {
-    color: '#fafafa',
+    color: Colors.flame,
     fontWeight: '800',
   },
   teamPlayerName: {
-    color: '#fafafa',
+    color: Colors.ink,
     fontWeight: '600',
   },
 });

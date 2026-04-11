@@ -1,14 +1,11 @@
 /**
- * Learn more about light and dark modes:
- * https://docs.expo.dev/guides/color-schemes/
+ * テーマ色フック。
+ * 現在はライトテーマ一本 (Leaf Pop) のため、単に `Colors` を返すだけ。
+ * 将来ダークテーマを足す場合はここで分岐する。
  */
 
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export function useTheme() {
-  const scheme = useColorScheme();
-  const theme = scheme === 'unspecified' ? 'light' : scheme;
-
-  return Colors[theme];
+  return Colors;
 }
