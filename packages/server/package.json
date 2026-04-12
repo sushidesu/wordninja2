@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
+    "check": "oxlint && oxfmt --check .",
+    "fix": "oxlint --fix && oxfmt --write .",
     "typecheck": "tsc --noEmit",
     "db:migrate:local": "wrangler d1 execute wordninja-db --local --file=./schema.sql",
     "db:seed:local": "wrangler d1 execute wordninja-db --local --file=./seed.sql",
@@ -16,6 +18,8 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260412.1",
+    "oxfmt": "^0.44.0",
+    "oxlint": "^1.59.0",
     "typescript": "~5.9.2",
     "wrangler": "^4.81.1"
   }
