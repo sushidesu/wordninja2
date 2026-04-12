@@ -41,3 +41,21 @@ export type PostPlayedRequest = {
   wordIds: string[];
   vote: 'up' | 'down' | null;
 };
+
+// Admin API
+
+export type TopicSetWithStats = {
+  id: string;
+  words: Word[];
+  playCount: number;
+  upvotes: number;
+  downvotes: number;
+};
+
+export type CreateTopicSetRequest = {
+  words: string[]; // word texts (新規作成 or 既存を参照)
+};
+
+export type GenerateTopicsResponse = {
+  candidates: string[][]; // 候補の組み合わせ群
+};
