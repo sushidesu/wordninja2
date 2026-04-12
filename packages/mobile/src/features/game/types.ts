@@ -20,10 +20,7 @@ export type Question = {
   revealed: boolean;
 };
 
-export type GamePhase = 'setup' | 'assignment' | 'playing' | 'voting' | 'result';
-
 export type GameState = {
-  phase: GamePhase;
   players: Player[];
   teams: Team[];
   questions: Question[];

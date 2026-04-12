@@ -21,6 +21,8 @@ import React, { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { GameProvider } from '@/features/game/game-context';
+
 SplashScreen.preventAutoHideAsync().catch(() => {
   // already-hidden is fine
 });
@@ -48,7 +50,11 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }} />
+        <GameProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" options={{ animation: 'fade' }} />
+          </Stack>
+        </GameProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

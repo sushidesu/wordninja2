@@ -16,6 +16,7 @@ import type { GameState, Player, Question } from './types';
 
 type Props = {
   gameState: GameState;
+  isVoting: boolean;
   currentPlayer: Player | undefined;
   currentQuestion: Question | undefined;
   questionText: string;
@@ -31,6 +32,7 @@ const BORDER = 3;
 
 export function PlayingPhase({
   gameState,
+  isVoting,
   currentPlayer,
   currentQuestion,
   questionText,
@@ -41,7 +43,6 @@ export function PlayingPhase({
   onSubmitVotes,
   onEndGame,
 }: Props) {
-  const isVoting = gameState.phase === 'voting';
 
   return (
     <PhaseFrame
@@ -63,7 +64,7 @@ export function PlayingPhase({
       </View>
       <BreakLine />
 
-      {gameState.phase === 'playing' && (
+      {!isVoting && (
         <AdaptiveScrollView
           style={styles.scrollArea}
           contentContainerStyle={styles.gameContent}>
@@ -133,7 +134,7 @@ export function PlayingPhase({
         </AdaptiveScrollView>
       )}
 
-      {gameState.phase === 'voting' && currentQuestion && (
+      {isVoting && currentQuestion && (
         <View style={styles.votingWrap}>
           <StampLabel color={Colors.canvas}>VOTING PHASE</StampLabel>
           <HighlightHeading
