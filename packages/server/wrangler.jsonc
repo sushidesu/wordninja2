@@ -6,7 +6,7 @@
     {
       "binding": "DB",
       "database_name": "wordninja-db",
-      "database_id": "local"
-    }
-  ]
+      "database_id": "local",
+    },
+  ],
 }

@@ -1,8 +1,5 @@
-import { Hono } from 'hono';
-import type {
-  GetRandomTopicsResponse,
-  PostPlayedRequest,
-} from '@wordninja/shared';
+import { Hono } from "hono";
+import type { GetRandomTopicsResponse, PostPlayedRequest } from "@wordninja/shared";
 
 type Bindings = {
   DB: D1Database;
@@ -10,15 +7,15 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-app.get('/', (c) => {
-  return c.json({ status: 'ok', service: 'wordninja-server' });
+app.get("/", (c) => {
+  return c.json({ status: "ok", service: "wordninja-server" });
 });
 
 // GET /topics/random?count=N
-app.get('/topics/random', async (c) => {
-  const count = Number(c.req.query('count') ?? '2');
+app.get("/topics/random", async (c) => {
+  const count = Number(c.req.query("count") ?? "2");
   if (count < 2) {
-    return c.json({ error: 'count must be at least 2' }, 400);
+    return c.json({ error: "count must be at least 2" }, 400);
   }
 
   // ランダムにTopicSetを1つ選ぶ（wordが count 以上あるもの）
@@ -30,10 +27,12 @@ app.get('/topics/random', async (c) => {
     HAVING word_count >= ?
     ORDER BY RANDOM()
     LIMIT 1
-  `).bind(count).first<{ id: string; word_count: number }>();
+  `)
+    .bind(count)
+    .first<{ id: string; word_count: number }>();
 
   if (!topicSet) {
-    return c.json({ error: 'no topic set available' }, 404);
+    return c.json({ error: "no topic set available" }, 404);
   }
 
   // そのTopicSetからランダムにcount個のWordを取得
@@ -44,7 +43,9 @@ app.get('/topics/random', async (c) => {
     WHERE tsw.topic_set_id = ?
     ORDER BY RANDOM()
     LIMIT ?
-  `).bind(topicSet.id, count).all<{ id: string; text: string }>();
+  `)
+    .bind(topicSet.id, count)
+    .all<{ id: string; text: string }>();
 
   const response: GetRandomTopicsResponse = {
     topicSetId: topicSet.id,
@@ -55,7 +56,7 @@ app.get('/topics/random', async (c) => {
 });
 
 // POST /topics/played
-app.post('/topics/played', async (c) => {
+app.post("/topics/played", async (c) => {
   const body = await c.req.json<PostPlayedRequest>();
   const { topicSetId, wordIds, vote } = body;
 
@@ -65,14 +66,18 @@ app.post('/topics/played', async (c) => {
   await c.env.DB.prepare(`
     INSERT INTO play_records (id, topic_set_id, vote)
     VALUES (?, ?, ?)
-  `).bind(playRecordId, topicSetId, vote).run();
+  `)
+    .bind(playRecordId, topicSetId, vote)
+    .run();
 
   // PlayRecord に紐づく Word を記録
   for (const wordId of wordIds) {
     await c.env.DB.prepare(`
       INSERT INTO play_record_words (play_record_id, word_id)
       VALUES (?, ?)
-    `).bind(playRecordId, wordId).run();
+    `)
+      .bind(playRecordId, wordId)
+      .run();
   }
 
   return c.json({ id: playRecordId }, 201);
