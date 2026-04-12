@@ -6,11 +6,15 @@ import {
   Text,
   TextInput,
   View,
+  type StyleProp,
+  type TextStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdaptiveScrollView } from '@/components/adaptive-scroll-view';
-import { Colors, TeamColors } from '@/constants/theme';
+import { HardShadow } from '@/components/hard-shadow';
+import { HighlightHeading } from '@/components/highlight-heading';
+import { PhaseFrame } from '@/components/phase-frame';
+import { Colors, Fonts, TeamColors } from '@/constants/theme';
 
 type Player = {
   id: string;
@@ -97,6 +101,64 @@ function setupInitialVotes(players: Player[]): Record<string, 'yes' | 'no'> {
     return acc;
   }, {});
 }
+
+// ---- 再利用パーツ ----
+
+type StampLabelProps = {
+  children: React.ReactNode;
+  color?: string;
+  style?: StyleProp<TextStyle>;
+};
+
+function StampLabel({ children, color = Colors.ink, style }: StampLabelProps) {
+  return (
+    <Text style={[styles.stamp, { color }, style]}>{children}</Text>
+  );
+}
+
+type PrimaryButtonProps = {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+};
+
+function PrimaryButton({ label, onPress, disabled }: PrimaryButtonProps) {
+  return (
+    <HardShadow style={[styles.primaryShadowWrap, disabled && styles.disabled]}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        style={styles.primaryButton}>
+        <Text style={styles.primaryButtonText}>{label}</Text>
+      </Pressable>
+    </HardShadow>
+  );
+}
+
+type SecondaryButtonProps = {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+};
+
+function SecondaryButton({ label, onPress, disabled }: SecondaryButtonProps) {
+  return (
+    <HardShadow style={[styles.secondaryShadowWrap, disabled && styles.disabled]}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        style={styles.secondaryButton}>
+        <Text style={styles.secondaryButtonText}>{label}</Text>
+      </Pressable>
+    </HardShadow>
+  );
+}
+
+function BreakLine() {
+  return <View style={styles.breakLine} />;
+}
+
+// ---- メイン ----
 
 export default function HomeScreen() {
   const [gameState, setGameState] = useState<GameState>(INITIAL_GAME_STATE);
@@ -244,22 +306,25 @@ export default function HomeScreen() {
     setSetupPlayers((prev) => prev.filter((player) => player.id !== playerId));
   };
 
+  // ---- SETUP PHASE ----
   if (gameState.phase === 'setup') {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.container}>
-          <Text style={styles.title}>
-            ワード<Text style={styles.titleAccent}>ニンジャ</Text>
-          </Text>
-          <Text style={styles.subtitle}>チーム対戦型推理ゲーム</Text>
+      <PhaseFrame
+        backgroundColor={Colors.canvas}
+        phaseLabel="PHASE 01 · SETUP">
+        <HighlightHeading fontSize={56} overflowX={0}>
+          ワードニンジャ
+        </HighlightHeading>
+        <Text style={styles.subtitle}>チーム対戦型推理ゲーム</Text>
 
-          <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.setupContent}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>参加者 ({setupPlayers.length}人)</Text>
-            </View>
+        <AdaptiveScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.setupContent}>
+          <StampLabel>参加者 · {setupPlayers.length} PLAYERS</StampLabel>
 
-            {setupPlayers.map((player) => (
-              <View key={player.id} style={styles.playerRow}>
+          {setupPlayers.map((player) => (
+            <View key={player.id} style={styles.playerRow}>
+              <HardShadow style={styles.playerInputShadow}>
                 <TextInput
                   value={player.name}
                   onChangeText={(value) => updatePlayerName(player.id, value)}
@@ -267,49 +332,63 @@ export default function HomeScreen() {
                   placeholderTextColor={Colors.inkMute}
                   style={styles.playerInput}
                 />
-                <Pressable onPress={() => removePlayer(player.id)} style={styles.removeButton}>
+              </HardShadow>
+              <HardShadow>
+                <Pressable
+                  onPress={() => removePlayer(player.id)}
+                  style={styles.removeButton}>
                   <Text style={styles.removeButtonText}>×</Text>
                 </Pressable>
-              </View>
-            ))}
+              </HardShadow>
+            </View>
+          ))}
 
+          <HardShadow style={styles.addPlayerShadow}>
             <Pressable onPress={addPlayer} style={styles.addPlayerButton}>
               <Text style={styles.addPlayerText}>+ プレイヤーを追加</Text>
             </Pressable>
+          </HardShadow>
 
-            <View style={styles.settingsCard}>
-              <Text style={styles.sectionTitle}>設定</Text>
+          <BreakLine />
 
-              <Text style={styles.settingLabel}>チーム数</Text>
-              <View style={styles.teamButtonsRow}>
-                {[2, 3, 4].map((count) => (
-                  <Pressable
-                    key={count}
-                    onPress={() => setTeamCount(count)}
-                    style={[styles.teamButton, teamCount === count && styles.teamButtonActive]}>
-                    <Text
-                      style={[
-                        styles.teamButtonText,
-                        teamCount === count && styles.teamButtonTextActive,
-                      ]}>
-                      {count}チーム
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+          <StampLabel>設定 · SETTINGS</StampLabel>
 
-              <View style={styles.customTopicRow}>
-                <Text style={styles.settingLabel}>お題を手動で設定する</Text>
-                <Switch
-                  value={useCustomTopic}
-                  onValueChange={setUseCustomTopic}
-                  trackColor={{ false: Colors.paperDeep, true: Colors.hero }}
-                  thumbColor={Colors.canvas}
-                />
-              </View>
+          <View style={styles.settingsBlock}>
+            <Text style={styles.settingLabel}>チーム数</Text>
+            <View style={styles.teamButtonsRow}>
+              {[2, 3, 4].map((count) => {
+                const active = teamCount === count;
+                return (
+                  <HardShadow key={count} style={styles.teamButtonShadow}>
+                    <Pressable
+                      onPress={() => setTeamCount(count)}
+                      style={[styles.teamButton, active && styles.teamButtonActive]}>
+                      <Text
+                        style={[
+                          styles.teamButtonText,
+                          active && styles.teamButtonTextActive,
+                        ]}>
+                        {count}
+                      </Text>
+                    </Pressable>
+                  </HardShadow>
+                );
+              })}
+            </View>
 
-              {useCustomTopic && (
-                <View style={styles.customTopicInputs}>
+            <View style={styles.customTopicRow}>
+              <Text style={styles.settingLabel}>お題を手動で設定する</Text>
+              <Switch
+                value={useCustomTopic}
+                onValueChange={setUseCustomTopic}
+                trackColor={{ false: Colors.paperDeep, true: Colors.hero }}
+                thumbColor={Colors.canvas}
+              />
+            </View>
+
+            {useCustomTopic && (
+              <View style={styles.customTopicInputs}>
+                <HardShadow style={styles.topicInputShadow}>
                   <TextInput
                     value={customTopicA}
                     onChangeText={setCustomTopicA}
@@ -317,6 +396,8 @@ export default function HomeScreen() {
                     placeholderTextColor={Colors.inkMute}
                     style={styles.topicInput}
                   />
+                </HardShadow>
+                <HardShadow style={styles.topicInputShadow}>
                   <TextInput
                     value={customTopicB}
                     onChangeText={setCustomTopicB}
@@ -324,56 +405,71 @@ export default function HomeScreen() {
                     placeholderTextColor={Colors.inkMute}
                     style={styles.topicInput}
                   />
-                </View>
-              )}
-            </View>
-          </AdaptiveScrollView>
-
-          <View style={styles.bottomAction}>
-            <Pressable
-              disabled={setupPlayers.length < 2}
-              onPress={startGame}
-              style={[styles.primaryButton, setupPlayers.length < 2 && styles.disabledButton]}>
-              <Text style={styles.primaryButtonText}>▶ ゲーム開始</Text>
-            </Pressable>
+                </HardShadow>
+              </View>
+            )}
           </View>
+        </AdaptiveScrollView>
+
+        <View style={styles.bottomAction}>
+          <PrimaryButton
+            label="▶ ゲーム開始"
+            onPress={startGame}
+            disabled={setupPlayers.length < 2}
+          />
         </View>
-      </SafeAreaView>
+      </PhaseFrame>
     );
   }
 
+  // ---- ASSIGNMENT PHASE ----
   if (gameState.phase === 'assignment') {
     const player = gameState.players[assignmentIndex];
 
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={[styles.container, styles.assignmentContainer]}>
-          <Text style={styles.assignmentLabel}>PLAYER CHECK</Text>
+      <PhaseFrame
+        backgroundColor={Colors.hero}
+        phaseLabel="PHASE 02 · ASSIGNMENT"
+        frameColor={Colors.ink}
+        labelColor={Colors.canvas}>
+        <View style={styles.assignmentContainer}>
+          <StampLabel color={Colors.canvas}>PLAYER CHECK</StampLabel>
           <Text style={styles.assignmentName}>{player?.name}さん</Text>
 
           {!assignmentRevealed ? (
-            <Pressable style={styles.hiddenCard} onPress={() => setAssignmentRevealed(true)}>
-              <Text style={styles.hiddenCardIcon}>👁</Text>
-              <Text style={styles.hiddenCardTitle}>タップしてお題を確認</Text>
-              <Text style={styles.hiddenCardNote}>※他の人に見られないようにしてください</Text>
-            </Pressable>
-          ) : (
-            <View style={styles.revealedCard}>
-              <Text style={styles.revealedLabel}>あなたのお題</Text>
-              <Text style={styles.revealedTopic}>{player?.topic}</Text>
-              <Pressable onPress={() => setAssignmentRevealed(false)}>
-                <Text style={styles.hideLink}>隠す</Text>
+            <HardShadow style={styles.centerShadow}>
+              <Pressable
+                style={styles.hiddenCard}
+                onPress={() => setAssignmentRevealed(true)}>
+                <Text style={styles.hiddenCardIcon}>👁</Text>
+                <Text style={styles.hiddenCardTitle}>タップしてお題を確認</Text>
+                <Text style={styles.hiddenCardNote}>
+                  ※他の人に見られないようにしてください
+                </Text>
               </Pressable>
-            </View>
+            </HardShadow>
+          ) : (
+            <HardShadow style={styles.centerShadow}>
+              <View style={styles.revealedCard}>
+                <StampLabel>あなたのお題</StampLabel>
+                <Text style={styles.revealedTopic}>{player?.topic}</Text>
+                <Pressable onPress={() => setAssignmentRevealed(false)}>
+                  <Text style={styles.hideLink}>隠す</Text>
+                </Pressable>
+              </View>
+            </HardShadow>
           )}
 
           <View style={styles.assignmentBottom}>
             {assignmentRevealed ? (
-              <Pressable style={styles.primaryButton} onPress={proceedAssignment}>
-                <Text style={styles.primaryButtonText}>
-                  {assignmentIndex < gameState.players.length - 1 ? '次の人へ渡す' : '全員確認完了'}
-                </Text>
-              </Pressable>
+              <PrimaryButton
+                label={
+                  assignmentIndex < gameState.players.length - 1
+                    ? '次の人へ渡す'
+                    : '全員確認完了'
+                }
+                onPress={proceedAssignment}
+              />
             ) : (
               <Text style={styles.assignmentHint}>本人以外は見ないでください</Text>
             )}
@@ -395,20 +491,35 @@ export default function HomeScreen() {
             </View>
           </View>
         </View>
-      </SafeAreaView>
+      </PhaseFrame>
     );
   }
 
+  // ---- RESULT PHASE ----
   if (gameState.phase === 'result') {
     return (
-      <SafeAreaView style={styles.screen}>
-        <View style={styles.container}>
-          <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.resultContent}>
-            <Text style={styles.resultTitle}>結果発表</Text>
-            <Text style={styles.subtitle}>正体とお題を公開します</Text>
+      <PhaseFrame
+        backgroundColor={Colors.hero}
+        phaseLabel="PHASE 05 · RESULT"
+        frameColor={Colors.ink}
+        labelColor={Colors.canvas}>
+        <AdaptiveScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.resultContent}>
+          <HighlightHeading
+            fontSize={48}
+            overflowX={0}
+            borderColor={Colors.ink}
+            color={Colors.ink}>
+            結果発表
+          </HighlightHeading>
+          <Text style={[styles.subtitle, { color: Colors.ink }]}>
+            正体とお題を公開します
+          </Text>
 
-            {gameState.teams.map((team) => (
-              <View key={team.id} style={styles.teamCard}>
+          {gameState.teams.map((team) => (
+            <HardShadow key={team.id} style={styles.teamCardShadow}>
+              <View style={styles.teamCard}>
                 <View style={[styles.teamCardHeader, { backgroundColor: team.color }]}>
                   <Text style={styles.teamName}>{team.name}</Text>
                   <Text style={styles.teamTopic}>{team.topic}</Text>
@@ -419,48 +530,65 @@ export default function HomeScreen() {
                     .map((player) => (
                       <View key={player.id} style={styles.teamPlayerRow}>
                         <View style={styles.playerAvatar}>
-                          <Text style={styles.playerAvatarText}>{player.name.charAt(0)}</Text>
+                          <Text style={styles.playerAvatarText}>
+                            {player.name.charAt(0)}
+                          </Text>
                         </View>
                         <Text style={styles.teamPlayerName}>{player.name}</Text>
                       </View>
                     ))}
                 </View>
               </View>
-            ))}
-          </AdaptiveScrollView>
+            </HardShadow>
+          ))}
+        </AdaptiveScrollView>
 
-          <View style={styles.bottomAction}>
-            <Pressable style={styles.secondaryButton} onPress={restartGame}>
-              <Text style={styles.secondaryButtonText}>もう一度遊ぶ</Text>
-            </Pressable>
-          </View>
+        <View style={styles.bottomAction}>
+          <SecondaryButton label="もう一度遊ぶ" onPress={restartGame} />
         </View>
-      </SafeAreaView>
+      </PhaseFrame>
     );
   }
 
+  // ---- PLAYING or VOTING PHASE ----
+  const isVoting = gameState.phase === 'voting';
   return (
-    <SafeAreaView style={styles.screen}>
-      <View style={styles.container}>
-        <View style={styles.gameHeader}>
-          <Text style={styles.gameHeaderTitle}>
-            ワード<Text style={styles.titleAccent}>ニンジャ</Text>
-          </Text>
+    <PhaseFrame
+      backgroundColor={isVoting ? Colors.spark : Colors.canvas}
+      phaseLabel={isVoting ? 'PHASE 04 · VOTING' : 'PHASE 03 · PLAYING'}
+      frameColor={Colors.ink}
+      labelColor={isVoting ? Colors.canvas : Colors.ink}>
+      <View style={styles.gameHeader}>
+        <Text
+          style={[
+            styles.gameHeaderTitle,
+            { color: isVoting ? Colors.canvas : Colors.ink },
+          ]}>
+          ワードニンジャ
+        </Text>
+        <HardShadow>
           <Pressable
             style={styles.endGameButton}
             onPress={() => setGameState((prev) => ({ ...prev, phase: 'result' }))}>
             <Text style={styles.endGameButtonText}>ゲーム終了</Text>
           </Pressable>
-        </View>
+        </HardShadow>
+      </View>
+      <BreakLine />
 
-        {gameState.phase === 'playing' && (
-          <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.gameContent}>
-            <View style={styles.turnWrap}>
-              <Text style={styles.turnLabel}>CURRENT TURN</Text>
-              <Text style={styles.turnName}>{currentPlayer?.name}</Text>
-              <Text style={styles.turnHint}>質問を考えてください</Text>
-            </View>
+      {gameState.phase === 'playing' && (
+        <AdaptiveScrollView
+          style={styles.scrollArea}
+          contentContainerStyle={styles.gameContent}>
+          <View style={styles.turnWrap}>
+            <StampLabel>CURRENT TURN</StampLabel>
+            <HighlightHeading fontSize={44} overflowX={0} marginBottom={8}>
+              {currentPlayer?.name ?? ''}
+            </HighlightHeading>
+            <Text style={styles.turnHint}>質問を考えてください</Text>
+          </View>
 
+          <HardShadow style={styles.questionCardShadow}>
             <View style={styles.questionCard}>
               <Text style={styles.settingLabel}>質問内容 (任意)</Text>
               <TextInput
@@ -471,200 +599,217 @@ export default function HomeScreen() {
                 style={styles.questionInput}
                 multiline
               />
-              <Pressable
+              <SecondaryButton
+                label="質問して投票へ"
                 onPress={startVoting}
                 disabled={!questionText.trim()}
-                style={[styles.secondaryButton, !questionText.trim() && styles.disabledButton]}>
-                <Text style={styles.secondaryButtonText}>質問して投票へ</Text>
-              </Pressable>
+              />
             </View>
+          </HardShadow>
 
-            <View style={styles.historyWrap}>
-              <Text style={styles.historyTitle}>履歴</Text>
-              {gameState.questions.filter((question) => question.revealed).length === 0 && (
-                <Text style={styles.emptyHistory}>まだ質問はありません</Text>
-              )}
+          <BreakLine />
+          <StampLabel>履歴 · HISTORY</StampLabel>
 
-              {[...gameState.questions]
-                .reverse()
-                .filter((question) => question.revealed)
-                .map((question) => {
-                  const yesCount = Object.values(question.votes).filter((vote) => vote === 'yes').length;
-                  const noCount = Object.values(question.votes).filter((vote) => vote === 'no').length;
-                  const asker = gameState.players.find((player) => player.id === question.askerId);
+          <View style={styles.historyWrap}>
+            {gameState.questions.filter((question) => question.revealed).length === 0 && (
+              <Text style={styles.emptyHistory}>まだ質問はありません</Text>
+            )}
 
-                  return (
-                    <View key={question.id} style={styles.historyItem}>
+            {[...gameState.questions]
+              .reverse()
+              .filter((question) => question.revealed)
+              .map((question) => {
+                const yesCount = Object.values(question.votes).filter(
+                  (vote) => vote === 'yes',
+                ).length;
+                const noCount = Object.values(question.votes).filter(
+                  (vote) => vote === 'no',
+                ).length;
+                const asker = gameState.players.find(
+                  (player) => player.id === question.askerId,
+                );
+
+                return (
+                  <HardShadow key={question.id} style={styles.historyItemShadow}>
+                    <View style={styles.historyItem}>
                       <Text style={styles.historyMeta}>{asker?.name} の質問</Text>
                       <Text style={styles.historyQuestion}>{question.text}</Text>
                       <View style={styles.voteResultRow}>
-                        <View style={styles.voteResultCard}>
+                        <View style={[styles.voteResultCard, styles.voteResultYes]}>
                           <Text style={styles.yesText}>はい</Text>
-                          <Text style={styles.voteCount}>{yesCount}</Text>
+                          <Text style={styles.voteCountYes}>{yesCount}</Text>
                         </View>
-                        <View style={styles.voteResultCard}>
+                        <View style={[styles.voteResultCard, styles.voteResultNo]}>
                           <Text style={styles.noText}>いいえ</Text>
-                          <Text style={styles.voteCount}>{noCount}</Text>
+                          <Text style={styles.voteCountNo}>{noCount}</Text>
                         </View>
                       </View>
                     </View>
-                  );
-                })}
-            </View>
-          </AdaptiveScrollView>
-        )}
+                  </HardShadow>
+                );
+              })}
+          </View>
+        </AdaptiveScrollView>
+      )}
 
-        {gameState.phase === 'voting' && currentQuestion && (
-          <View style={styles.votingWrap}>
-            <Text style={styles.votingLabel}>VOTING PHASE</Text>
-            <Text style={styles.votingQuestion}>{currentQuestion.text}</Text>
-            <Text style={styles.turnHint}>全員の回答を入力してください</Text>
+      {gameState.phase === 'voting' && currentQuestion && (
+        <View style={styles.votingWrap}>
+          <StampLabel color={Colors.canvas}>VOTING PHASE</StampLabel>
+          <HighlightHeading
+            fontSize={32}
+            overflowX={0}
+            borderColor={Colors.canvas}
+            color={Colors.canvas}>
+            {currentQuestion.text}
+          </HighlightHeading>
+          <Text style={[styles.turnHint, { color: Colors.canvas }]}>
+            全員の回答を入力してください
+          </Text>
 
-            <AdaptiveScrollView style={styles.voteList} contentContainerStyle={styles.voteListContent}>
-              {gameState.players.map((player) => {
-                const isYes = currentVotes[player.id] === 'yes';
+          <AdaptiveScrollView
+            style={styles.voteList}
+            contentContainerStyle={styles.voteListContent}>
+            {gameState.players.map((player) => {
+              const isYes = currentVotes[player.id] === 'yes';
 
-                return (
-                  <View key={player.id} style={styles.voteRow}>
+              return (
+                <HardShadow key={player.id} style={styles.voteRowShadow}>
+                  <View style={styles.voteRow}>
                     <Text style={styles.votePlayerName}>{player.name}</Text>
                     <Pressable
                       onPress={() => toggleVote(player.id)}
                       style={[styles.voteButton, isYes ? styles.voteYes : styles.voteNo]}>
-                      <Text style={styles.voteButtonText}>{isYes ? 'はい' : 'いいえ'}</Text>
+                      <Text style={styles.voteButtonText}>
+                        {isYes ? 'はい' : 'いいえ'}
+                      </Text>
                     </Pressable>
                   </View>
-                );
-              })}
-            </AdaptiveScrollView>
+                </HardShadow>
+              );
+            })}
+          </AdaptiveScrollView>
 
-            <Pressable style={styles.secondaryButton} onPress={submitVotes}>
-              <Text style={styles.secondaryButtonText}>回答を確定して共有</Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
-    </SafeAreaView>
+          <PrimaryButton label="回答を確定して共有" onPress={submitVotes} />
+        </View>
+      )}
+    </PhaseFrame>
   );
 }
 
+// ---- スタイル: deviation の造形ルール (radius=0, border=3px, display=DotGothic16) ----
+
+const BORDER = 3;
+
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Colors.canvas,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  title: {
-    marginTop: 12,
-    fontSize: 38,
-    fontWeight: '900',
-    color: Colors.ink,
-    textAlign: 'center',
-    letterSpacing: -1,
-  },
-  titleAccent: {
-    color: Colors.spark,
-  },
+  // ---- 共通テキスト ----
   subtitle: {
     color: Colors.inkSoft,
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: 16,
+    marginBottom: 20,
+    fontFamily: Fonts.body,
+    fontSize: 14,
+  },
+  stamp: {
+    fontFamily: Fonts.display,
+    fontSize: 11,
+    letterSpacing: 2,
+    color: Colors.ink,
+    marginBottom: 10,
+    marginTop: 4,
   },
   scrollArea: {
     flex: 1,
-    marginHorizontal: -20,
+    marginHorizontal: -8,
   },
   setupContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
     paddingBottom: 120,
   },
-  sectionHeaderRow: {
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    color: Colors.ink,
-    fontWeight: '700',
-    fontSize: 18,
-  },
+  // ---- SETUP ----
   playerRow: {
     flexDirection: 'row',
     gap: 8,
     marginBottom: 10,
-    alignItems: 'center',
+    alignItems: 'flex-start',
+  },
+  playerInputShadow: {
+    flex: 1,
   },
   playerInput: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
-    backgroundColor: Colors.paper,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
+    backgroundColor: Colors.canvas,
     color: Colors.ink,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    fontFamily: Fonts.body,
+    fontSize: 15,
   },
   removeButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.paper,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
+    backgroundColor: Colors.canvas,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
   },
   removeButtonText: {
     color: Colors.danger,
-    fontSize: 24,
+    fontSize: 22,
+    fontFamily: Fonts.display,
     marginTop: -2,
   },
-  addPlayerButton: {
-    borderRadius: 12,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: Colors.paperStrong,
-    paddingVertical: 14,
-    alignItems: 'center',
+  addPlayerShadow: {
     marginBottom: 16,
   },
-  addPlayerText: {
-    color: Colors.inkSoft,
-    fontWeight: '600',
+  addPlayerButton: {
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
+    backgroundColor: Colors.canvas,
+    paddingVertical: 14,
+    alignItems: 'center',
   },
-  settingsCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
-    backgroundColor: Colors.paper,
-    padding: 14,
+  addPlayerText: {
+    color: Colors.ink,
+    fontFamily: Fonts.display,
+    fontSize: 13,
+    letterSpacing: 1,
+  },
+  settingsBlock: {
     gap: 10,
   },
   settingLabel: {
-    color: Colors.inkSoft,
-    fontWeight: '500',
+    color: Colors.ink,
+    fontFamily: Fonts.display,
+    fontSize: 12,
+    letterSpacing: 1,
     marginTop: 4,
     marginBottom: 2,
   },
   teamButtonsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
     marginBottom: 6,
   },
-  teamButton: {
+  teamButtonShadow: {
     flex: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
-    backgroundColor: Colors.paperDeep,
+  },
+  teamButton: {
+    paddingVertical: 12,
+    backgroundColor: Colors.canvas,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
     alignItems: 'center',
   },
   teamButtonActive: {
     backgroundColor: Colors.hero,
   },
   teamButtonText: {
-    color: Colors.inkSoft,
-    fontWeight: '700',
+    color: Colors.ink,
+    fontFamily: Fonts.display,
+    fontSize: 18,
   },
   teamButtonTextActive: {
     color: Colors.canvas,
@@ -676,75 +821,86 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   customTopicInputs: {
-    gap: 8,
+    gap: 10,
     marginTop: 4,
   },
+  topicInputShadow: {},
   topicInput: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
     backgroundColor: Colors.canvas,
     color: Colors.ink,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: Fonts.body,
+    fontSize: 15,
   },
+  // ---- 共通: ボトムアクション ----
   bottomAction: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 20,
+    paddingTop: 12,
   },
+  // ---- PRIMARY/SECONDARY ボタン ----
+  primaryShadowWrap: {},
   primaryButton: {
     backgroundColor: Colors.hero,
-    borderRadius: 14,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 15,
+    paddingVertical: 16,
   },
   primaryButtonText: {
-    color: Colors.canvas,
-    fontSize: 18,
-    fontWeight: '800',
+    color: Colors.ink,
+    fontFamily: Fonts.display,
+    fontSize: 20,
+    letterSpacing: 2,
   },
+  secondaryShadowWrap: {},
   secondaryButton: {
-    backgroundColor: Colors.heroSoft,
-    borderRadius: 14,
+    backgroundColor: Colors.canvas,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
   },
   secondaryButtonText: {
-    color: Colors.flame,
+    color: Colors.ink,
+    fontFamily: Fonts.display,
     fontSize: 16,
-    fontWeight: '800',
+    letterSpacing: 2,
   },
-  disabledButton: {
+  disabled: {
     opacity: 0.45,
   },
+  // ---- BreakLine ----
+  breakLine: {
+    height: BORDER,
+    backgroundColor: Colors.ink,
+    marginVertical: 20,
+  },
+  // ---- ASSIGNMENT ----
   assignmentContainer: {
+    flex: 1,
     justifyContent: 'center',
     paddingBottom: 20,
   },
-  assignmentLabel: {
-    color: Colors.inkSoft,
-    textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-  },
   assignmentName: {
-    color: Colors.ink,
+    color: Colors.canvas,
     textAlign: 'center',
-    marginTop: 8,
-    fontSize: 34,
-    fontWeight: '900',
+    marginTop: 4,
+    fontSize: 36,
+    fontFamily: Fonts.display,
     marginBottom: 24,
   },
+  centerShadow: {
+    alignSelf: 'center',
+    width: '100%',
+  },
   hiddenCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
-    backgroundColor: Colors.paper,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
+    backgroundColor: Colors.canvas,
     minHeight: 260,
     alignItems: 'center',
     justifyContent: 'center',
@@ -755,276 +911,266 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   hiddenCardTitle: {
-    color: Colors.inkSoft,
-    fontSize: 17,
-    fontWeight: '700',
+    color: Colors.ink,
+    fontSize: 16,
+    fontFamily: Fonts.display,
+    letterSpacing: 1,
   },
   hiddenCardNote: {
-    color: Colors.inkMute,
+    color: Colors.inkSoft,
     marginTop: 8,
-    fontSize: 12,
+    fontSize: 11,
+    fontFamily: Fonts.body,
   },
   revealedCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.hero,
-    backgroundColor: Colors.heroSoft,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
+    backgroundColor: Colors.canvas,
     minHeight: 260,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
   },
-  revealedLabel: {
-    color: Colors.flame,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
   revealedTopic: {
     color: Colors.ink,
-    fontSize: 44,
-    fontWeight: '900',
+    fontSize: 52,
+    fontFamily: Fonts.display,
     marginBottom: 18,
+    marginTop: 4,
+    textAlign: 'center',
   },
   hideLink: {
     color: Colors.inkSoft,
-    fontWeight: '600',
+    fontFamily: Fonts.display,
+    fontSize: 12,
+    letterSpacing: 1,
   },
   assignmentBottom: {
     marginTop: 22,
     gap: 20,
   },
   assignmentHint: {
-    color: Colors.inkSoft,
+    color: Colors.canvas,
     textAlign: 'center',
     fontSize: 13,
+    fontFamily: Fonts.body,
   },
   progressRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
   },
   progressDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.paperDeep,
+    width: 10,
+    height: 10,
+    backgroundColor: Colors.canvas,
+    borderWidth: 2,
+    borderColor: Colors.ink,
   },
   progressDotDone: {
-    backgroundColor: Colors.paperStrong,
+    backgroundColor: Colors.ink,
   },
   progressDotActive: {
-    width: 26,
-    borderRadius: 4,
-    backgroundColor: Colors.hero,
+    width: 30,
+    backgroundColor: Colors.ink,
   },
+  // ---- PLAYING / VOTING ----
   gameHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.paperDeep,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   gameHeaderTitle: {
-    color: Colors.ink,
-    fontSize: 20,
-    fontWeight: '900',
+    fontFamily: Fonts.display,
+    fontSize: 22,
+    letterSpacing: 1,
   },
   endGameButton: {
-    borderRadius: 999,
-    backgroundColor: Colors.paperDeep,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
+    backgroundColor: Colors.canvas,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   endGameButtonText: {
-    color: Colors.inkSoft,
-    fontSize: 12,
-    fontWeight: '600',
+    color: Colors.ink,
+    fontSize: 11,
+    fontFamily: Fonts.display,
+    letterSpacing: 1,
   },
   gameContent: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingHorizontal: 8,
+    paddingTop: 4,
     paddingBottom: 24,
-    gap: 22,
   },
   turnWrap: {
     alignItems: 'center',
-    paddingVertical: 16,
-  },
-  turnLabel: {
-    color: Colors.flame,
-    backgroundColor: Colors.heroSoft,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 999,
-    fontSize: 11,
-    fontWeight: '800',
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  turnName: {
-    color: Colors.ink,
-    fontSize: 42,
-    fontWeight: '900',
-    marginBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   turnHint: {
     color: Colors.inkSoft,
     fontSize: 13,
+    fontFamily: Fonts.body,
+  },
+  questionCardShadow: {
+    marginTop: 12,
   },
   questionCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
-    backgroundColor: Colors.paper,
-    padding: 14,
-    gap: 10,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
+    backgroundColor: Colors.canvas,
+    padding: 16,
+    gap: 12,
   },
   questionInput: {
     minHeight: 90,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
-    borderRadius: 12,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
     backgroundColor: Colors.canvas,
     color: Colors.ink,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     textAlignVertical: 'top',
+    fontFamily: Fonts.body,
+    fontSize: 15,
   },
   historyWrap: {
-    gap: 10,
-  },
-  historyTitle: {
-    color: Colors.inkSoft,
-    fontWeight: '800',
-    fontSize: 12,
-    letterSpacing: 1.1,
+    gap: 14,
   },
   emptyHistory: {
-    color: Colors.inkMute,
-    fontStyle: 'italic',
+    color: Colors.inkSoft,
+    fontFamily: Fonts.body,
+    fontSize: 13,
   },
+  historyItemShadow: {},
   historyItem: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
-    backgroundColor: Colors.paper,
-    padding: 12,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
+    backgroundColor: Colors.canvas,
+    padding: 14,
   },
   historyMeta: {
     color: Colors.inkSoft,
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 11,
+    fontFamily: Fonts.display,
+    letterSpacing: 1,
+    marginBottom: 6,
   },
   historyQuestion: {
     color: Colors.ink,
-    fontWeight: '600',
-    marginBottom: 10,
+    fontFamily: Fonts.body,
+    fontSize: 16,
+    marginBottom: 12,
   },
   voteResultRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   voteResultCard: {
     flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
-    backgroundColor: Colors.canvas,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
     paddingVertical: 10,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  voteResultYes: {
+    backgroundColor: Colors.hero,
+  },
+  voteResultNo: {
+    backgroundColor: Colors.canvas,
+  },
   yesText: {
-    color: Colors.hero,
-    fontWeight: '800',
-  },
-  noText: {
-    color: Colors.danger,
-    fontWeight: '800',
-  },
-  voteCount: {
     color: Colors.ink,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  votingWrap: {
-    flex: 1,
-    paddingTop: 18,
-    paddingBottom: 20,
-    gap: 12,
-  },
-  votingLabel: {
-    color: Colors.spark,
-    fontSize: 12,
-    fontWeight: '800',
+    fontFamily: Fonts.display,
+    fontSize: 14,
     letterSpacing: 1,
   },
-  votingQuestion: {
+  noText: {
     color: Colors.ink,
-    fontSize: 30,
-    fontWeight: '900',
+    fontFamily: Fonts.display,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  voteCountYes: {
+    color: Colors.ink,
+    fontFamily: Fonts.display,
+    fontSize: 22,
+  },
+  voteCountNo: {
+    color: Colors.ink,
+    fontFamily: Fonts.display,
+    fontSize: 22,
+  },
+  // ---- VOTING ----
+  votingWrap: {
+    flex: 1,
+    paddingTop: 10,
+    paddingBottom: 20,
+    gap: 12,
   },
   voteList: {
     flex: 1,
     marginTop: 8,
-    marginHorizontal: -20,
+    marginHorizontal: -8,
   },
   voteListContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+    gap: 10,
   },
+  voteRowShadow: {},
   voteRow: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
-    backgroundColor: Colors.paper,
-    padding: 12,
-    marginBottom: 8,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
+    backgroundColor: Colors.canvas,
+    padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   votePlayerName: {
     color: Colors.ink,
-    fontWeight: '700',
+    fontFamily: Fonts.display,
     fontSize: 16,
+    letterSpacing: 1,
   },
   voteButton: {
-    minWidth: 92,
-    borderRadius: 10,
+    minWidth: 100,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
   voteYes: {
     backgroundColor: Colors.hero,
   },
   voteNo: {
-    backgroundColor: Colors.danger,
+    backgroundColor: Colors.canvas,
   },
   voteButtonText: {
-    color: Colors.canvas,
-    fontWeight: '800',
-  },
-  resultContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 120,
-    gap: 12,
-  },
-  resultTitle: {
     color: Colors.ink,
-    fontSize: 36,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginTop: 14,
+    fontFamily: Fonts.display,
+    fontSize: 14,
+    letterSpacing: 1,
   },
+  // ---- RESULT ----
+  resultContent: {
+    paddingHorizontal: 8,
+    paddingBottom: 120,
+    gap: 16,
+  },
+  teamCardShadow: {},
   teamCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.paperDeep,
-    backgroundColor: Colors.paper,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
+    backgroundColor: Colors.canvas,
     overflow: 'hidden',
   },
   teamCardHeader: {
@@ -1032,45 +1178,52 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderBottomWidth: BORDER,
+    borderBottomColor: Colors.ink,
   },
   teamName: {
     color: Colors.canvas,
-    fontWeight: '900',
+    fontFamily: Fonts.display,
     fontSize: 18,
+    letterSpacing: 1,
   },
   teamTopic: {
     color: Colors.canvas,
     backgroundColor: Colors.overlay,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 999,
-    fontWeight: '700',
+    fontFamily: Fonts.display,
+    fontSize: 14,
+    letterSpacing: 1,
   },
   teamPlayersWrap: {
-    padding: 12,
-    gap: 8,
+    padding: 14,
+    gap: 10,
   },
   teamPlayerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     paddingVertical: 4,
   },
   playerAvatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.heroSoft,
+    backgroundColor: Colors.hero,
+    borderWidth: BORDER,
+    borderColor: Colors.ink,
   },
   playerAvatarText: {
-    color: Colors.flame,
-    fontWeight: '800',
+    color: Colors.ink,
+    fontFamily: Fonts.display,
+    fontSize: 16,
   },
   teamPlayerName: {
     color: Colors.ink,
-    fontWeight: '600',
+    fontFamily: Fonts.body,
+    fontSize: 16,
   },
 });

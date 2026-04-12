@@ -22,10 +22,10 @@ const palette = {
   neutral400: '#9CA3AF',
   neutral500: '#6B7280',
   forestInk: '#102820',
-  leaf: '#5EC16E',
+  leaf: '#0EBCAA',
   leafMist: '#E6F6EA',
   deepLeaf: '#1E7A3E',
-  peachPop: '#FF6B9D',
+  peachPop: '#009E88',
   coralRed: '#FF5252',
   inkOverlay: 'rgba(16, 40, 32, 0.33)',
   // チーム識別用 (テーマとは独立した「各チームのシンボルカラー」)
@@ -95,30 +95,26 @@ export const TeamColors = [
 
 export type ThemeColor = Exclude<keyof typeof Colors, never>;
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
+/**
+ * 役割ベースのフォントトークン。
+ * display = ドット絵 (DotGothic16)、body = Zen Kaku Gothic New 系の和文ゴシック。
+ * deviationgame.com のフォント方針を踏襲。
+ */
+export const Fonts = {
+  /** 全ての見出し・ボタン・ラベルに使うピクセル系ディスプレイフォント (英数/JP 両対応)。 */
+  display: 'DotGothic16_400Regular',
+  /** 本文・段落・入力値・補助ラベル。 */
+  body: 'ZenKakuGothicNew_400Regular',
+  bodyMedium: 'ZenKakuGothicNew_500Medium',
+  bodyBold: 'ZenKakuGothicNew_700Bold',
+  bodyBlack: 'ZenKakuGothicNew_900Black',
+  /** 旧 API 互換: コード表示など数値系。 */
+  mono: Platform.select({
+    ios: 'ui-monospace',
+    android: 'monospace',
+    default: 'monospace',
+  }),
+} as const;
 
 export const Spacing = {
   half: 2,
