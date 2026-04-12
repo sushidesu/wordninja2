@@ -494,7 +494,7 @@ export default function HomeScreen() {
           <HighlightHeading fontSize={56} overflowX={0}>
             ワードニンジャ
           </HighlightHeading>
-          <Text style={styles.subtitle}>チーム対戦型推理ゲーム</Text>
+          <Text style={styles.subtitle}>お題推理パーティーゲーム</Text>
 
           <StampLabel>参加者 · {setupPlayers.length} PLAYERS</StampLabel>
 
@@ -529,7 +529,7 @@ export default function HomeScreen() {
 
           <MakimonoBox contentStyle={styles.makimonoContent}>
             <View style={styles.settingsRow}>
-              <Text style={styles.settingLabel}>チーム数</Text>
+              <Text style={styles.settingLabel}>お題の数</Text>
               <View style={styles.teamButtonsRow}>
                 {[2, 3, 4].map((count) => {
                   const active = teamCount === count;
@@ -570,7 +570,7 @@ export default function HomeScreen() {
                   <TextInput
                     value={customTopicA}
                     onChangeText={setCustomTopicA}
-                    placeholder="チームAのお題 (例: 犬)"
+                    placeholder="お題A (例: 犬)"
                     placeholderTextColor={Colors.inkMute}
                     style={styles.topicInput}
                   />
@@ -580,7 +580,7 @@ export default function HomeScreen() {
                   <TextInput
                     value={customTopicB}
                     onChangeText={setCustomTopicB}
-                    placeholder="チームBのお題 (例: 猫)"
+                    placeholder="お題B (例: 猫)"
                     placeholderTextColor={Colors.inkMute}
                     style={styles.topicInput}
                   />
@@ -639,13 +639,12 @@ export default function HomeScreen() {
             結果発表
           </HighlightHeading>
           <Text style={[styles.subtitle, { color: Colors.ink }]}>
-            正体とお題を公開します
+            お題を公開します
           </Text>
 
           {gameState.teams.map((team) => (
             <MakimonoBox key={team.id}>
-              <View style={[styles.teamCardHeader, { backgroundColor: team.color }]}>
-                <Text style={styles.teamName}>{team.name}</Text>
+              <View style={styles.teamCardHeader}>
                 <Text style={styles.teamTopic}>{team.topic}</Text>
               </View>
               <View style={styles.teamPlayersWrap}>
@@ -653,11 +652,6 @@ export default function HomeScreen() {
                   .filter((player) => player.teamId === team.id)
                   .map((player) => (
                     <View key={player.id} style={styles.teamPlayerRow}>
-                      <View style={styles.playerAvatar}>
-                        <Text style={styles.playerAvatarText}>
-                          {player.name.charAt(0)}
-                        </Text>
-                      </View>
                       <Text style={styles.teamPlayerName}>{player.name}</Text>
                     </View>
                   ))}
@@ -1254,56 +1248,26 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   teamCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderBottomWidth: BORDER,
-    borderBottomColor: Colors.ink,
-  },
-  teamName: {
-    color: Colors.canvas,
-    fontFamily: Fonts.display,
-    fontSize: 18,
-    letterSpacing: 1,
+    paddingVertical: 16,
   },
   teamTopic: {
-    color: Colors.canvas,
-    backgroundColor: Colors.overlay,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    color: Colors.ink,
     fontFamily: Fonts.display,
-    fontSize: 14,
-    letterSpacing: 1,
+    fontSize: 28,
+    textAlign: 'center',
   },
   teamPlayersWrap: {
     padding: 14,
-    gap: 10,
+    gap: 6,
   },
   teamPlayerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     paddingVertical: 4,
-  },
-  playerAvatar: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.hero,
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
-  },
-  playerAvatarText: {
-    color: Colors.ink,
-    fontFamily: Fonts.display,
-    fontSize: 16,
   },
   teamPlayerName: {
     color: Colors.ink,
     fontFamily: Fonts.body,
-    fontSize: 16,
+    fontSize: 15,
   },
 });
