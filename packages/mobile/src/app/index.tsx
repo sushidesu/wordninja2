@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -6,13 +6,25 @@ import {
   Text,
   TextInput,
   View,
+  type LayoutChangeEvent,
   type StyleProp,
   type TextStyle,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Easing,
+  clamp,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AdaptiveScrollView } from '@/components/adaptive-scroll-view';
 import { HardShadow } from '@/components/hard-shadow';
 import { HighlightHeading } from '@/components/highlight-heading';
+import { MAKIMONO, MakimonoBox } from '@/components/makimono-box';
 import { PhaseFrame } from '@/components/phase-frame';
 import { Colors, Fonts, TeamColors } from '@/constants/theme';
 
@@ -158,6 +170,167 @@ function BreakLine() {
   return <View style={styles.breakLine} />;
 }
 
+// ---- 巻物アニメーション付き assignment 画面 ----
+
+type AssignmentScreenProps = {
+  players: Player[];
+  assignmentIndex: number;
+  assignmentRevealed: boolean;
+  containerWidth: number;
+  onContainerLayout: (e: LayoutChangeEvent) => void;
+  onReveal: () => void;
+  onHide: () => void;
+  onProceed: () => void;
+};
+
+const S = MAKIMONO.DEFAULT_SCALE;
+const RIGHT_CAP_W = MAKIMONO.BORDER_R * S;
+const ROD_W_PX = MAKIMONO.ROD_W * S;
+const BAR_H_PX = MAKIMONO.BORDER_H * S;
+const KNOB_H_PX = MAKIMONO.KNOB_H * S;
+
+function AssignmentScreen({
+  players,
+  assignmentIndex,
+  assignmentRevealed,
+  containerWidth,
+  onContainerLayout,
+  onReveal,
+  onHide,
+  onProceed,
+}: AssignmentScreenProps) {
+  const player = players[assignmentIndex];
+
+  const openWidth = containerWidth > 0 ? containerWidth - RIGHT_CAP_W : 0;
+  const scrollWidth = useSharedValue(ROD_W_PX);
+  const startWidth = useSharedValue(ROD_W_PX);
+
+  const clipStyle = useAnimatedStyle(() => ({
+    width: scrollWidth.value,
+    overflow: 'hidden' as const,
+  }));
+
+  // ボタン opacity: 巻物が 80% 開いたあたりから 0→1
+  const buttonStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollWidth.value,
+      [openWidth * 0.7, openWidth * 0.95],
+      [0, 1],
+      'clamp',
+    );
+    return { opacity };
+  });
+
+  // 左スワイプで開く、右スワイプで閉じる
+  const pan = Gesture.Pan()
+    .onStart(() => {
+      startWidth.value = scrollWidth.value;
+    })
+    .onUpdate((e) => {
+      // translationX < 0 = 左スワイプ = 巻物を開く方向
+      scrollWidth.value = clamp(
+        startWidth.value - e.translationX,
+        ROD_W_PX,
+        openWidth,
+      );
+    })
+    .onEnd(() => {
+      const threshold = openWidth * 0.4;
+      if (scrollWidth.value > threshold) {
+        scrollWidth.value = withTiming(openWidth, {
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+        });
+        runOnJS(onReveal)();
+      } else {
+        scrollWidth.value = withTiming(ROD_W_PX, {
+          duration: 300,
+          easing: Easing.in(Easing.cubic),
+        });
+        runOnJS(onHide)();
+      }
+    });
+
+  const handleHide = useCallback(() => {
+    onHide();
+    scrollWidth.value = withTiming(ROD_W_PX, {
+      duration: 400,
+      easing: Easing.in(Easing.cubic),
+    });
+  }, [onHide, scrollWidth]);
+
+  return (
+    <View style={styles.assignmentContainer}>
+      <StampLabel color={Colors.canvas}>PLAYER CHECK</StampLabel>
+      <Text style={styles.assignmentName}>{player?.name}さん</Text>
+
+      <GestureDetector gesture={pan}>
+        <Animated.View onLayout={onContainerLayout}>
+          <View style={styles.scrollPrompt}>
+            <Text style={styles.hiddenCardTitle}>← スワイプしてお題を確認</Text>
+          </View>
+
+          {/* 巻物: [クリップ(軸+paper)] + [右端キャップ] */}
+          <View style={styles.makimonoRow}>
+            <Animated.View style={clipStyle}>
+              {containerWidth > 0 && (
+                <View style={{ width: openWidth }}>
+                  <MakimonoBox hideRight contentStyle={styles.revealedCard}>
+                    <View style={styles.revealedCardInner}>
+                      <StampLabel>あなたのお題</StampLabel>
+                      <Text style={styles.revealedTopic}>{player?.topic}</Text>
+                      <Pressable onPress={handleHide}>
+                        <Text style={styles.hideLink}>隠す</Text>
+                      </Pressable>
+                    </View>
+                  </MakimonoBox>
+                </View>
+              )}
+            </Animated.View>
+
+            <View style={styles.rightCap}>
+              <View style={styles.rightCapSpacer} />
+              <View style={styles.rightCapBar} />
+              <View style={styles.rightCapBody} />
+              <View style={styles.rightCapBar} />
+              <View style={styles.rightCapSpacer} />
+            </View>
+          </View>
+        </Animated.View>
+      </GestureDetector>
+
+      <View style={styles.assignmentBottom}>
+        <Animated.View style={buttonStyle} pointerEvents={assignmentRevealed ? 'auto' : 'none'}>
+          <PrimaryButton
+            label={
+              assignmentIndex < players.length - 1
+                ? '次の人へ渡す'
+                : '全員確認完了'
+            }
+            onPress={onProceed}
+          />
+        </Animated.View>
+
+        <View style={styles.progressRow}>
+          {players.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.progressDot,
+                index === assignmentIndex
+                  ? styles.progressDotActive
+                  : index < assignmentIndex
+                    ? styles.progressDotDone
+                    : undefined,
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ---- メイン ----
 
 export default function HomeScreen() {
@@ -176,6 +349,10 @@ export default function HomeScreen() {
 
   const [assignmentIndex, setAssignmentIndex] = useState(0);
   const [assignmentRevealed, setAssignmentRevealed] = useState(false);
+  const [makimonoContainerWidth, setMakimonoContainerWidth] = useState(0);
+  const onMakimonoContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    setMakimonoContainerWidth(e.nativeEvent.layout.width);
+  }, []);
 
   const [questionText, setQuestionText] = useState('');
   const [currentVotes, setCurrentVotes] = useState<Record<string, 'yes' | 'no'>>({});
@@ -273,10 +450,10 @@ export default function HomeScreen() {
       const updated = prev.questions.map((question) =>
         question.id === currentQuestion.id
           ? {
-              ...question,
-              votes: currentVotes,
-              revealed: true,
-            }
+            ...question,
+            votes: currentVotes,
+            revealed: true,
+          }
           : question,
       );
 
@@ -310,57 +487,55 @@ export default function HomeScreen() {
   if (gameState.phase === 'setup') {
     return (
       <PhaseFrame
-        backgroundColor={Colors.canvas}
-        phaseLabel="PHASE 01 · SETUP">
-        <HighlightHeading fontSize={56} overflowX={0}>
-          ワードニンジャ
-        </HighlightHeading>
-        <Text style={styles.subtitle}>チーム対戦型推理ゲーム</Text>
-
+        backgroundColor={Colors.canvas}>
         <AdaptiveScrollView
           style={styles.scrollArea}
           contentContainerStyle={styles.setupContent}>
+          <HighlightHeading fontSize={56} overflowX={0}>
+            ワードニンジャ
+          </HighlightHeading>
+          <Text style={styles.subtitle}>チーム対戦型推理ゲーム</Text>
+
           <StampLabel>参加者 · {setupPlayers.length} PLAYERS</StampLabel>
 
-          {setupPlayers.map((player) => (
-            <View key={player.id} style={styles.playerRow}>
-              <HardShadow style={styles.playerInputShadow}>
-                <TextInput
-                  value={player.name}
-                  onChangeText={(value) => updatePlayerName(player.id, value)}
-                  placeholder="名前を入力"
-                  placeholderTextColor={Colors.inkMute}
-                  style={styles.playerInput}
-                />
-              </HardShadow>
-              <HardShadow>
-                <Pressable
-                  onPress={() => removePlayer(player.id)}
-                  style={styles.removeButton}>
-                  <Text style={styles.removeButtonText}>×</Text>
-                </Pressable>
-              </HardShadow>
-            </View>
-          ))}
+          <MakimonoBox contentStyle={styles.makimonoContent}>
+            {setupPlayers.map((player, index) => (
+              <View key={player.id}>
+                {index > 0 && <View style={styles.makimonoDivider} />}
+                <View style={styles.playerRow}>
+                  <TextInput
+                    value={player.name}
+                    onChangeText={(value) => updatePlayerName(player.id, value)}
+                    placeholder="名前を入力"
+                    placeholderTextColor={Colors.inkMute}
+                    style={styles.playerInput}
+                  />
+                  <Pressable
+                    onPress={() => removePlayer(player.id)}
+                    style={styles.removeButton}>
+                    <Text style={styles.removeButtonText}>×</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
 
-          <HardShadow style={styles.addPlayerShadow}>
+            <View style={styles.makimonoDivider} />
             <Pressable onPress={addPlayer} style={styles.addPlayerButton}>
               <Text style={styles.addPlayerText}>+ プレイヤーを追加</Text>
             </Pressable>
-          </HardShadow>
-
-          <BreakLine />
+          </MakimonoBox>
 
           <StampLabel>設定 · SETTINGS</StampLabel>
 
-          <View style={styles.settingsBlock}>
-            <Text style={styles.settingLabel}>チーム数</Text>
-            <View style={styles.teamButtonsRow}>
-              {[2, 3, 4].map((count) => {
-                const active = teamCount === count;
-                return (
-                  <HardShadow key={count} style={styles.teamButtonShadow}>
+          <MakimonoBox contentStyle={styles.makimonoContent}>
+            <View style={styles.settingsRow}>
+              <Text style={styles.settingLabel}>チーム数</Text>
+              <View style={styles.teamButtonsRow}>
+                {[2, 3, 4].map((count) => {
+                  const active = teamCount === count;
+                  return (
                     <Pressable
+                      key={count}
                       onPress={() => setTeamCount(count)}
                       style={[styles.teamButton, active && styles.teamButtonActive]}>
                       <Text
@@ -371,12 +546,14 @@ export default function HomeScreen() {
                         {count}
                       </Text>
                     </Pressable>
-                  </HardShadow>
-                );
-              })}
+                  );
+                })}
+              </View>
             </View>
 
-            <View style={styles.customTopicRow}>
+            <View style={styles.makimonoDivider} />
+
+            <View style={styles.settingsRow}>
               <Text style={styles.settingLabel}>お題を手動で設定する</Text>
               <Switch
                 value={useCustomTopic}
@@ -387,8 +564,9 @@ export default function HomeScreen() {
             </View>
 
             {useCustomTopic && (
-              <View style={styles.customTopicInputs}>
-                <HardShadow style={styles.topicInputShadow}>
+              <>
+                <View style={styles.makimonoDivider} />
+                <View style={styles.settingsRow}>
                   <TextInput
                     value={customTopicA}
                     onChangeText={setCustomTopicA}
@@ -396,8 +574,9 @@ export default function HomeScreen() {
                     placeholderTextColor={Colors.inkMute}
                     style={styles.topicInput}
                   />
-                </HardShadow>
-                <HardShadow style={styles.topicInputShadow}>
+                </View>
+                <View style={styles.makimonoDivider} />
+                <View style={styles.settingsRow}>
                   <TextInput
                     value={customTopicB}
                     onChangeText={setCustomTopicB}
@@ -405,10 +584,10 @@ export default function HomeScreen() {
                     placeholderTextColor={Colors.inkMute}
                     style={styles.topicInput}
                   />
-                </HardShadow>
-              </View>
+                </View>
+              </>
             )}
-          </View>
+          </MakimonoBox>
         </AdaptiveScrollView>
 
         <View style={styles.bottomAction}>
@@ -422,75 +601,23 @@ export default function HomeScreen() {
     );
   }
 
-  // ---- ASSIGNMENT PHASE ----
+  // ---- ASSIGNMENT PHASE (巻物アニメーション) ----
   if (gameState.phase === 'assignment') {
-    const player = gameState.players[assignmentIndex];
-
     return (
       <PhaseFrame
         backgroundColor={Colors.hero}
-        phaseLabel="PHASE 02 · ASSIGNMENT"
-        frameColor={Colors.ink}
-        labelColor={Colors.canvas}>
-        <View style={styles.assignmentContainer}>
-          <StampLabel color={Colors.canvas}>PLAYER CHECK</StampLabel>
-          <Text style={styles.assignmentName}>{player?.name}さん</Text>
-
-          {!assignmentRevealed ? (
-            <HardShadow style={styles.centerShadow}>
-              <Pressable
-                style={styles.hiddenCard}
-                onPress={() => setAssignmentRevealed(true)}>
-                <Text style={styles.hiddenCardIcon}>👁</Text>
-                <Text style={styles.hiddenCardTitle}>タップしてお題を確認</Text>
-                <Text style={styles.hiddenCardNote}>
-                  ※他の人に見られないようにしてください
-                </Text>
-              </Pressable>
-            </HardShadow>
-          ) : (
-            <HardShadow style={styles.centerShadow}>
-              <View style={styles.revealedCard}>
-                <StampLabel>あなたのお題</StampLabel>
-                <Text style={styles.revealedTopic}>{player?.topic}</Text>
-                <Pressable onPress={() => setAssignmentRevealed(false)}>
-                  <Text style={styles.hideLink}>隠す</Text>
-                </Pressable>
-              </View>
-            </HardShadow>
-          )}
-
-          <View style={styles.assignmentBottom}>
-            {assignmentRevealed ? (
-              <PrimaryButton
-                label={
-                  assignmentIndex < gameState.players.length - 1
-                    ? '次の人へ渡す'
-                    : '全員確認完了'
-                }
-                onPress={proceedAssignment}
-              />
-            ) : (
-              <Text style={styles.assignmentHint}>本人以外は見ないでください</Text>
-            )}
-
-            <View style={styles.progressRow}>
-              {gameState.players.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.progressDot,
-                    index === assignmentIndex
-                      ? styles.progressDotActive
-                      : index < assignmentIndex
-                        ? styles.progressDotDone
-                        : undefined,
-                  ]}
-                />
-              ))}
-            </View>
-          </View>
-        </View>
+        frameColor={Colors.ink}>
+        <AssignmentScreen
+          key={assignmentIndex}
+          players={gameState.players}
+          assignmentIndex={assignmentIndex}
+          assignmentRevealed={assignmentRevealed}
+          containerWidth={makimonoContainerWidth}
+          onContainerLayout={onMakimonoContainerLayout}
+          onReveal={() => setAssignmentRevealed(true)}
+          onHide={() => setAssignmentRevealed(false)}
+          onProceed={proceedAssignment}
+        />
       </PhaseFrame>
     );
   }
@@ -500,9 +627,7 @@ export default function HomeScreen() {
     return (
       <PhaseFrame
         backgroundColor={Colors.hero}
-        phaseLabel="PHASE 05 · RESULT"
-        frameColor={Colors.ink}
-        labelColor={Colors.canvas}>
+        frameColor={Colors.ink}>
         <AdaptiveScrollView
           style={styles.scrollArea}
           contentContainerStyle={styles.resultContent}>
@@ -518,28 +643,26 @@ export default function HomeScreen() {
           </Text>
 
           {gameState.teams.map((team) => (
-            <HardShadow key={team.id} style={styles.teamCardShadow}>
-              <View style={styles.teamCard}>
-                <View style={[styles.teamCardHeader, { backgroundColor: team.color }]}>
-                  <Text style={styles.teamName}>{team.name}</Text>
-                  <Text style={styles.teamTopic}>{team.topic}</Text>
-                </View>
-                <View style={styles.teamPlayersWrap}>
-                  {gameState.players
-                    .filter((player) => player.teamId === team.id)
-                    .map((player) => (
-                      <View key={player.id} style={styles.teamPlayerRow}>
-                        <View style={styles.playerAvatar}>
-                          <Text style={styles.playerAvatarText}>
-                            {player.name.charAt(0)}
-                          </Text>
-                        </View>
-                        <Text style={styles.teamPlayerName}>{player.name}</Text>
-                      </View>
-                    ))}
-                </View>
+            <MakimonoBox key={team.id}>
+              <View style={[styles.teamCardHeader, { backgroundColor: team.color }]}>
+                <Text style={styles.teamName}>{team.name}</Text>
+                <Text style={styles.teamTopic}>{team.topic}</Text>
               </View>
-            </HardShadow>
+              <View style={styles.teamPlayersWrap}>
+                {gameState.players
+                  .filter((player) => player.teamId === team.id)
+                  .map((player) => (
+                    <View key={player.id} style={styles.teamPlayerRow}>
+                      <View style={styles.playerAvatar}>
+                        <Text style={styles.playerAvatarText}>
+                          {player.name.charAt(0)}
+                        </Text>
+                      </View>
+                      <Text style={styles.teamPlayerName}>{player.name}</Text>
+                    </View>
+                  ))}
+              </View>
+            </MakimonoBox>
           ))}
         </AdaptiveScrollView>
 
@@ -555,9 +678,7 @@ export default function HomeScreen() {
   return (
     <PhaseFrame
       backgroundColor={isVoting ? Colors.spark : Colors.canvas}
-      phaseLabel={isVoting ? 'PHASE 04 · VOTING' : 'PHASE 03 · PLAYING'}
-      frameColor={Colors.ink}
-      labelColor={isVoting ? Colors.canvas : Colors.ink}>
+      frameColor={Colors.ink}>
       <View style={styles.gameHeader}>
         <Text
           style={[
@@ -588,24 +709,22 @@ export default function HomeScreen() {
             <Text style={styles.turnHint}>質問を考えてください</Text>
           </View>
 
-          <HardShadow style={styles.questionCardShadow}>
-            <View style={styles.questionCard}>
-              <Text style={styles.settingLabel}>質問内容 (任意)</Text>
-              <TextInput
-                value={questionText}
-                onChangeText={setQuestionText}
-                placeholder="例: それは食べ物ですか？"
-                placeholderTextColor={Colors.inkMute}
-                style={styles.questionInput}
-                multiline
-              />
-              <SecondaryButton
-                label="質問して投票へ"
-                onPress={startVoting}
-                disabled={!questionText.trim()}
-              />
-            </View>
-          </HardShadow>
+          <MakimonoBox contentStyle={styles.questionCard}>
+            <Text style={styles.settingLabel}>質問内容 (任意)</Text>
+            <TextInput
+              value={questionText}
+              onChangeText={setQuestionText}
+              placeholder="例: それは食べ物ですか？"
+              placeholderTextColor={Colors.inkMute}
+              style={styles.questionInput}
+              multiline
+            />
+            <SecondaryButton
+              label="質問して投票へ"
+              onPress={startVoting}
+              disabled={!questionText.trim()}
+            />
+          </MakimonoBox>
 
           <BreakLine />
           <StampLabel>履歴 · HISTORY</StampLabel>
@@ -630,22 +749,20 @@ export default function HomeScreen() {
                 );
 
                 return (
-                  <HardShadow key={question.id} style={styles.historyItemShadow}>
-                    <View style={styles.historyItem}>
-                      <Text style={styles.historyMeta}>{asker?.name} の質問</Text>
-                      <Text style={styles.historyQuestion}>{question.text}</Text>
-                      <View style={styles.voteResultRow}>
-                        <View style={[styles.voteResultCard, styles.voteResultYes]}>
-                          <Text style={styles.yesText}>はい</Text>
-                          <Text style={styles.voteCountYes}>{yesCount}</Text>
-                        </View>
-                        <View style={[styles.voteResultCard, styles.voteResultNo]}>
-                          <Text style={styles.noText}>いいえ</Text>
-                          <Text style={styles.voteCountNo}>{noCount}</Text>
-                        </View>
+                  <MakimonoBox key={question.id} contentStyle={styles.historyItemContent}>
+                    <Text style={styles.historyMeta}>{asker?.name} の質問</Text>
+                    <Text style={styles.historyQuestion}>{question.text}</Text>
+                    <View style={styles.voteResultRow}>
+                      <View style={[styles.voteResultCard, styles.voteResultYes]}>
+                        <Text style={styles.yesText}>はい</Text>
+                        <Text style={styles.voteCountYes}>{yesCount}</Text>
+                      </View>
+                      <View style={[styles.voteResultCard, styles.voteResultNo]}>
+                        <Text style={styles.noText}>いいえ</Text>
+                        <Text style={styles.voteCountNo}>{noCount}</Text>
                       </View>
                     </View>
-                  </HardShadow>
+                  </MakimonoBox>
                 );
               })}
           </View>
@@ -669,24 +786,27 @@ export default function HomeScreen() {
           <AdaptiveScrollView
             style={styles.voteList}
             contentContainerStyle={styles.voteListContent}>
-            {gameState.players.map((player) => {
-              const isYes = currentVotes[player.id] === 'yes';
+            <MakimonoBox contentStyle={styles.makimonoContent}>
+              {gameState.players.map((player, index) => {
+                const isYes = currentVotes[player.id] === 'yes';
 
-              return (
-                <HardShadow key={player.id} style={styles.voteRowShadow}>
-                  <View style={styles.voteRow}>
-                    <Text style={styles.votePlayerName}>{player.name}</Text>
-                    <Pressable
-                      onPress={() => toggleVote(player.id)}
-                      style={[styles.voteButton, isYes ? styles.voteYes : styles.voteNo]}>
-                      <Text style={styles.voteButtonText}>
-                        {isYes ? 'はい' : 'いいえ'}
-                      </Text>
-                    </Pressable>
+                return (
+                  <View key={player.id}>
+                    {index > 0 && <View style={styles.makimonoDivider} />}
+                    <View style={styles.voteRow}>
+                      <Text style={styles.votePlayerName}>{player.name}</Text>
+                      <Pressable
+                        onPress={() => toggleVote(player.id)}
+                        style={[styles.voteButton, isYes ? styles.voteYes : styles.voteNo]}>
+                        <Text style={styles.voteButtonText}>
+                          {isYes ? 'はい' : 'いいえ'}
+                        </Text>
+                      </Pressable>
+                    </View>
                   </View>
-                </HardShadow>
-              );
-            })}
+                );
+              })}
+            </MakimonoBox>
           </AdaptiveScrollView>
 
           <PrimaryButton label="回答を確定して共有" onPress={submitVotes} />
@@ -726,80 +846,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 120,
   },
-  // ---- SETUP ----
+  // ---- MakimonoBox 共通 ----
+  makimonoContent: {
+    paddingVertical: 4,
+  },
+  makimonoDivider: {
+    height: 1,
+    backgroundColor: Colors.paperDeep,
+    marginHorizontal: 12,
+  },
   playerRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     gap: 8,
-    marginBottom: 10,
-    alignItems: 'flex-start',
-  },
-  playerInputShadow: {
-    flex: 1,
   },
   playerInput: {
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
+    flex: 1,
     backgroundColor: Colors.canvas,
     color: Colors.ink,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     fontFamily: Fonts.body,
-    fontSize: 15,
+    fontSize: 16,
   },
   removeButton: {
-    width: 44,
-    height: 44,
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.canvas,
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
   },
   removeButtonText: {
     color: Colors.danger,
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: Fonts.display,
-    marginTop: -2,
-  },
-  addPlayerShadow: {
-    marginBottom: 16,
   },
   addPlayerButton: {
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
-    backgroundColor: Colors.canvas,
     paddingVertical: 14,
     alignItems: 'center',
   },
   addPlayerText: {
-    color: Colors.ink,
+    color: Colors.inkSoft,
     fontFamily: Fonts.display,
     fontSize: 13,
     letterSpacing: 1,
   },
-  settingsBlock: {
-    gap: 10,
+  // ---- SETUP: 設定 (巻物) ----
+  settingsRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
   },
   settingLabel: {
     color: Colors.ink,
     fontFamily: Fonts.display,
     fontSize: 12,
     letterSpacing: 1,
-    marginTop: 4,
-    marginBottom: 2,
   },
   teamButtonsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 6,
-  },
-  teamButtonShadow: {
-    flex: 1,
+    gap: 8,
+    marginTop: 6,
   },
   teamButton: {
-    paddingVertical: 12,
+    flex: 1,
+    paddingVertical: 10,
     backgroundColor: Colors.canvas,
-    borderWidth: BORDER,
+    borderWidth: 2,
     borderColor: Colors.ink,
     alignItems: 'center',
   },
@@ -814,24 +928,11 @@ const styles = StyleSheet.create({
   teamButtonTextActive: {
     color: Colors.canvas,
   },
-  customTopicRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  customTopicInputs: {
-    gap: 10,
-    marginTop: 4,
-  },
-  topicInputShadow: {},
   topicInput: {
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
     backgroundColor: Colors.canvas,
     color: Colors.ink,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
     fontFamily: Fonts.body,
     fontSize: 15,
   },
@@ -893,40 +994,42 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display,
     marginBottom: 24,
   },
-  centerShadow: {
-    alignSelf: 'center',
-    width: '100%',
-  },
-  hiddenCard: {
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
-    backgroundColor: Colors.canvas,
-    minHeight: 260,
+  scrollPrompt: {
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    gap: 8,
+    paddingVertical: 16,
   },
-  hiddenCardIcon: {
-    fontSize: 42,
-    marginBottom: 10,
+  makimonoRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  rightCap: {
+    width: RIGHT_CAP_W,
+  },
+  rightCapSpacer: {
+    height: KNOB_H_PX,
+  },
+  rightCapBar: {
+    height: BAR_H_PX,
+    backgroundColor: Colors.ink,
+  },
+  rightCapBody: {
+    flex: 1,
+    backgroundColor: Colors.ink,
   },
   hiddenCardTitle: {
     color: Colors.ink,
     fontSize: 16,
     fontFamily: Fonts.display,
     letterSpacing: 1,
-  },
-  hiddenCardNote: {
-    color: Colors.inkSoft,
-    marginTop: 8,
-    fontSize: 11,
-    fontFamily: Fonts.body,
+    textAlign: 'center',
+    padding: 12,
   },
   revealedCard: {
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
-    backgroundColor: Colors.canvas,
-    minHeight: 260,
+    minHeight: 220,
+  },
+  revealedCardInner: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -1015,21 +1118,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: Fonts.body,
   },
-  questionCardShadow: {
-    marginTop: 12,
-  },
   questionCard: {
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
-    backgroundColor: Colors.canvas,
     padding: 16,
     gap: 12,
   },
   questionInput: {
     minHeight: 90,
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
-    backgroundColor: Colors.canvas,
+    backgroundColor: Colors.paper,
     color: Colors.ink,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -1045,11 +1140,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.body,
     fontSize: 13,
   },
-  historyItemShadow: {},
-  historyItem: {
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
-    backgroundColor: Colors.canvas,
+  historyItemContent: {
     padding: 14,
   },
   historyMeta: {
@@ -1071,8 +1162,6 @@ const styles = StyleSheet.create({
   },
   voteResultCard: {
     flex: 1,
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
     paddingVertical: 10,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -1124,12 +1213,10 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 10,
   },
-  voteRowShadow: {},
   voteRow: {
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
     backgroundColor: Colors.canvas,
-    padding: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1165,13 +1252,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 120,
     gap: 16,
-  },
-  teamCardShadow: {},
-  teamCard: {
-    borderWidth: BORDER,
-    borderColor: Colors.ink,
-    backgroundColor: Colors.canvas,
-    overflow: 'hidden',
   },
   teamCardHeader: {
     flexDirection: 'row',
