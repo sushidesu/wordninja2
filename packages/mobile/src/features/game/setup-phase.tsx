@@ -52,9 +52,9 @@ export function SetupPhase({
         </HighlightHeading>
         <Text style={styles.subtitle}>お題推理パーティーゲーム</Text>
 
-        <StampLabel>参加者 · {players.length} PLAYERS</StampLabel>
+        <StampLabel style={styles.stampLabel}>参加者 · {players.length} PLAYERS</StampLabel>
 
-        <MakimonoBox contentStyle={styles.makimonoContent}>
+        <MakimonoBox style={styles.makimono} contentStyle={styles.makimonoContent}>
           {players.map((player, index) => (
             <View key={player.id}>
               {index > 0 && <View style={styles.makimonoDivider} />}
@@ -81,9 +81,9 @@ export function SetupPhase({
           </Pressable>
         </MakimonoBox>
 
-        <StampLabel>設定 · SETTINGS</StampLabel>
+        <StampLabel style={styles.stampLabel}>設定 · SETTINGS</StampLabel>
 
-        <MakimonoBox contentStyle={styles.makimonoContent}>
+        <MakimonoBox style={styles.makimono} contentStyle={styles.makimonoContent}>
           <View style={styles.settingsRow}>
             <Text style={styles.settingLabel}>お題の数</Text>
             <View style={styles.teamButtonsRow}>
@@ -170,9 +170,14 @@ const styles = StyleSheet.create({
     color: Colors.inkSoft,
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: 20,
     fontFamily: Fonts.body,
     fontSize: 14,
+  },
+  stampLabel: {
+    marginTop: 24,
+  },
+  makimono: {
+    marginTop: 10,
   },
   makimonoContent: {
     paddingVertical: 4,

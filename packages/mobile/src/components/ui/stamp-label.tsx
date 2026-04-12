@@ -19,7 +19,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 2,
     color: Colors.ink,
-    marginBottom: 10,
-    marginTop: 4,
   },
 });
