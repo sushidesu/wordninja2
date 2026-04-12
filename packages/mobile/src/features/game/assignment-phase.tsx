@@ -111,14 +111,9 @@ export function AssignmentPhase({
 
         <GestureDetector gesture={pan}>
           <Animated.View onLayout={onContainerLayout}>
-            {!assignmentRevealed && (
-              <View style={styles.scrollPrompt}>
-                <Text style={styles.hiddenCardTitle}>← スワイプしてお題を確認</Text>
-                <Text style={styles.assignmentHint}>
-                  ※他の人に見られないようにしてください
-                </Text>
-              </View>
-            )}
+            <View style={styles.scrollPrompt}>
+              <Text style={styles.hiddenCardTitle}>← スワイプしてお題を確認</Text>
+            </View>
 
             <View style={styles.makimonoRow}>
               <Animated.View style={clipStyle}>
