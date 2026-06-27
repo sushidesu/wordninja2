@@ -113,13 +113,23 @@ app.post("/candidates/:id/verdict", async (c) => {
   const next =
     v === field(body, "current")
       ? null
-      : v === "good" || v === "close" || v === "bad"
-        ? v
+      : (repo.VERDICT_KEYS as string[]).includes(v)
+        ? (v as repo.Verdict)
         : null;
   await repo.setCandidateVerdict(
     createDb(c.env.DB),
     Number(c.req.param("id")),
     next,
+  );
+  return c.redirect("/", 303);
+});
+
+app.post("/candidates/:id/vibe", async (c) => {
+  const body = await c.req.parseBody();
+  await repo.setCandidateVibe(
+    createDb(c.env.DB),
+    Number(c.req.param("id")),
+    field(body, "current") !== "1", // トグル
   );
   return c.redirect("/", 303);
 });

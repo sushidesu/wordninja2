@@ -84,13 +84,15 @@ api.get("/candidates", async (c) =>
 
 // 判定 / フィードバックの設定（人 or sub-agent）
 api.put("/candidates/:id/feedback", async (c) => {
-  const { verdict, feedback } = await c.req.json<{
+  const { verdict, vibe, feedback } = await c.req.json<{
     verdict?: repo.Verdict | null;
+    vibe?: boolean;
     feedback?: string | null;
   }>();
   const db = createDb(c.env.DB);
   const id = Number(c.req.param("id"));
   if (verdict !== undefined) await repo.setCandidateVerdict(db, id, verdict);
+  if (vibe !== undefined) await repo.setCandidateVibe(db, id, vibe);
   if (feedback !== undefined) await repo.setCandidateFeedback(db, id, feedback);
   return c.json({ ok: true });
 });

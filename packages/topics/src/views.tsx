@@ -7,10 +7,15 @@ import {
   WORDS_PER_TOPIC,
 } from "./repo";
 
+// 番号キー(1〜5)順。良い/惜しい=登録対象、残りは没の理由。
 const VERDICTS: { key: Verdict; label: string; color: string }[] = [
   { key: "good", label: "良い", color: "#16a34a" },
   { key: "close", label: "惜しい", color: "#d97706" },
-  { key: "bad", label: "ダメ", color: "#ef4444" },
+  { key: "too_close", label: "近すぎ", color: "#ef4444" },
+  { key: "predictable", label: "予測可能", color: "#db2777" },
+  { key: "flat", label: "平凡", color: "#6b7280" },
+  { key: "too_far", label: "遠すぎ", color: "#6366f1" },
+  { key: "nonsense", label: "意味不明", color: "#475569" },
 ];
 
 const STYLE = `
@@ -114,6 +119,11 @@ const CandidateCard: FC<{ candidate: Candidate }> = ({ candidate }) => (
           {VERDICTS.find((v) => v.key === candidate.verdict)?.label}
         </span>
       )}
+      {candidate.vibe && (
+        <span class="chip" style="color:#fff;border:0;background:#a855f7">
+          ★ 雰囲気
+        </span>
+      )}
       <span class="spacer" />
       <span class="muted">{candidate.createdAt}</span>
     </div>
@@ -160,6 +170,19 @@ const CandidateCard: FC<{ candidate: Candidate }> = ({ candidate }) => (
           </button>
         </form>
       ))}
+      <span class="spacer" />
+      <form method="post" action={`/candidates/${candidate.id}/vibe`}>
+        <input type="hidden" name="current" value={candidate.vibe ? "1" : "0"} />
+        <button
+          type="submit"
+          title="雰囲気◎（判定と独立）"
+          style={`padding:4px 12px;font-weight:600;border:1px solid #a855f7;background:${
+            candidate.vibe ? "#a855f7" : "transparent"
+          };color:${candidate.vibe ? "#fff" : "#a855f7"}`}
+        >
+          ★ 雰囲気
+        </button>
+      </form>
     </div>
     <form method="post" action={`/candidates/${candidate.id}/feedback`}>
       <label>フィードバック（惜しい点・直したい所など）</label>
@@ -261,7 +284,9 @@ export const SetsListPage: FC<{
 // 高速レビュー: キーボードで1ペアずつ即判定・自動送り・リロード無し。
 // 「近すぎ」を主要な却下にする非対称評価（遠さは許容）。
 const REVIEW_JS = `
-const KEY = { '1': 'good', '2': 'close', '3': 'bad' };
+const KEY = ${JSON.stringify(
+  Object.fromEntries(VERDICTS.map((v, i) => [String(i + 1), v.key])),
+)};
 const esc = s => s.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
 let queue = [], idx = 0;
 
@@ -284,7 +309,8 @@ function render() {
   const c = queue[idx];
   card.innerHTML = '<div class="pair">' +
     c.words.map(w => '<span class="w">' + esc(w) + '</span>').join('<span class="vs">×</span>') +
-    '</div>';
+    '</div>' +
+    '<div class="vibe-ind">' + (c.vibe ? '★ 雰囲気◎' : '') + '</div>';
 }
 function rate(verdict) {
   if (idx >= queue.length) return;
@@ -295,8 +321,18 @@ function rate(verdict) {
     body: JSON.stringify({ verdict })
   });
 }
+function toggleVibe() { // 判定とは独立。進めない
+  if (idx >= queue.length) return;
+  const c = queue[idx];
+  c.vibe = !c.vibe; render();
+  fetch('/api/candidates/' + c.id + '/feedback', {
+    method: 'PUT', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ vibe: c.vibe })
+  });
+}
 document.addEventListener('keydown', e => {
   if (KEY[e.key]) { e.preventDefault(); rate(KEY[e.key]); }
+  else if (e.key === 'v') { e.preventDefault(); toggleVibe(); }
   else if (e.key === 'u' && idx > 0) { idx--; render(); } // 戻る（再判定で上書き）
 });
 load();
@@ -315,8 +351,9 @@ export const ReviewPage: FC = () => (
         .pair .vs { font-size: 22px; color:#8a8f98; }
         .done { font-size: 20px; text-align:center; line-height:2; }
         .rv-btns { display:flex; gap:10px; justify-content:center; }
-        .rv-btns button { font-size:16px; padding:14px 22px; border-radius:10px; }
-        .b-good { background:#16a34a; } .b-close { background:#d97706; } .b-bad { background:#ef4444; }
+        .rv-btns { flex-wrap: wrap; }
+        .rv-btns button { font-size:16px; padding:14px 20px; border-radius:10px; color:#fff; }
+        .vibe-ind { text-align:center; min-height:24px; margin-top:10px; color:#a855f7; font-weight:700; }
         .keyhint { color:#8a8f98; text-align:center; margin-top:14px; font-size:13px; }
       `,
       }}
@@ -331,12 +368,22 @@ export const ReviewPage: FC = () => (
     <div id="card" />
 
     <div class="rv-btns">
-      <button class="b-good" onclick="rate('good')">1 · 良い</button>
-      <button class="b-close" onclick="rate('close')">2 · 惜しい</button>
-      <button class="b-bad" onclick="rate('bad')">3 · 近すぎ</button>
+      {VERDICTS.map((v, i) => (
+        <button
+          style={`background:${v.color}`}
+          onclick={`rate('${v.key}')`}
+        >
+          {i + 1} · {v.label}
+        </button>
+      ))}
+      <button style="background:#a855f7" onclick="toggleVibe()">
+        v · ★雰囲気
+      </button>
     </div>
     <p class="keyhint">
-      キー: 1 = 良い / 2 = 惜しい / 3 = 近すぎ（ダメ） / u = 1つ戻る　— 押すと即保存して次へ
+      {VERDICTS.map((v, i) => `${i + 1}=${v.label}`).join(" / ")} / v = ★雰囲気◎（独立トグル） / u = 戻る
+      <br />
+      数字キーで即保存して次へ（良い・惜しいが登録対象）。雰囲気は判定と別で残せる
     </p>
 
     <script dangerouslySetInnerHTML={{ __html: REVIEW_JS }} />

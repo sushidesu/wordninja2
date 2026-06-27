@@ -148,7 +148,30 @@ export async function upsertEvaluation(
 
 // ---- 候補（生成→編集→登録/却下）----
 
-export type Verdict = "good" | "close" | "bad";
+// 良い/惜しい = 登録対象（惜しい以上）。残り3つは没の理由を区別して持つ
+// （ルーブリック校正の信号: どの観点で落ちたか）。
+export type Verdict =
+  | "good"
+  | "close"
+  | "too_close" // 近すぎ（同義・同一サブカテゴリ）= C2
+  | "predictable" // 予測可能（片方がメジャー過ぎ）= C1
+  | "flat" // 平凡（同ジャンルなだけ）= C1
+  | "too_far" // 遠すぎ（連想はギリ辿れるが遠い）= C3
+  | "nonsense"; // 意味不明（共通点が成立しない/ナンセンス）= C3
+
+export const VERDICT_KEYS: Verdict[] = [
+  "good",
+  "close",
+  "too_close",
+  "predictable",
+  "flat",
+  "too_far",
+  "nonsense",
+];
+
+// 惜しい以上 = 登録対象
+export const isRegisterable = (v: Verdict | null): boolean =>
+  v === "good" || v === "close";
 
 export type Candidate = {
   id: number;
@@ -157,6 +180,7 @@ export type Candidate = {
   note: string | null;
   score: number | null;
   verdict: Verdict | null;
+  vibe: boolean;
   feedback: string | null;
   createdAt: string;
 };
@@ -173,6 +197,7 @@ export async function listCandidates(db: Db): Promise<Candidate[]> {
     note: r.note,
     score: r.score,
     verdict: r.verdict as Verdict | null,
+    vibe: r.vibe,
     feedback: r.feedback,
     createdAt: r.createdAt,
   }));
@@ -197,6 +222,17 @@ export async function setCandidateFeedback(
   await db
     .update(topicSetCandidates)
     .set({ feedback })
+    .where(eq(topicSetCandidates.id, id));
+}
+
+export async function setCandidateVibe(
+  db: Db,
+  id: number,
+  vibe: boolean,
+): Promise<void> {
+  await db
+    .update(topicSetCandidates)
+    .set({ vibe })
     .where(eq(topicSetCandidates.id, id));
 }
 

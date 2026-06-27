@@ -53,7 +53,8 @@ export const topicSetCandidates = sqliteTable("topic_set_candidates", {
   source: text("source"), // 生成元（agent/プロンプト名など）
   note: text("note"), // 生成理由 / ルーブリック採点の内訳
   score: real("score"), // ルーブリック自動評価の予測スコア（0.0〜1.0, 未採点は null）
-  verdict: text("verdict"), // 人の判定: "good" | "close" | "bad" | null
+  verdict: text("verdict"), // 人の判定（good/close/too_close/predictable/flat/too_far）
+  vibe: integer("vibe", { mode: "boolean" }).notNull().default(false), // 雰囲気◎（判定と独立）
   feedback: text("feedback"), // 人の自由コメント（膨張ループの入力）
   createdAt: text("created_at")
     .notNull()
