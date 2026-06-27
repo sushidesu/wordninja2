@@ -102,7 +102,6 @@ export type ThemeColor = Exclude<keyof typeof Colors, never>;
  * body  = 角ゴシック (M PLUS 1)。本文・入力・段落。label と同 family を太さで使い分ける。
  *
  * title を小サイズに使うと極太で潰れるため、display/body の2分割をやめて title/label/body に分けた。
- * font-lab の学習プレビューで選定した組み合わせ。
  */
 export const Fonts = {
   /** 大見出し・お題・プレイヤー名など、インパクト重視の大きな文字 (28px〜)。 */
