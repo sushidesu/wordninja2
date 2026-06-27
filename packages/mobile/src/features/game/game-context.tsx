@@ -111,11 +111,12 @@ export function useGame(): GameContextValue {
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [gameState, setGameState] = useState<GameState>(INITIAL_GAME_STATE);
 
+  // 名前は空がデフォ。表示時は空なら「プレイヤーN」を計算して出す (state には既定名を持たせない)。
   const [setupPlayers, setSetupPlayers] = useState<Player[]>([
-    { id: '1', name: 'プレイヤー1' },
-    { id: '2', name: 'プレイヤー2' },
-    { id: '3', name: 'プレイヤー3' },
-    { id: '4', name: 'プレイヤー4' },
+    { id: '1', name: '' },
+    { id: '2', name: '' },
+    { id: '3', name: '' },
+    { id: '4', name: '' },
   ]);
   const [teamCount, setTeamCount] = useState(2);
   const [useCustomTopic, setUseCustomTopic] = useState(false);
@@ -148,7 +149,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
   const addPlayer = useCallback(() => {
     const newId = String(Date.now());
-    setSetupPlayers((prev) => [...prev, { id: newId, name: `プレイヤー${prev.length + 1}` }]);
+    setSetupPlayers((prev) => [...prev, { id: newId, name: '' }]);
   }, []);
 
   const updatePlayerName = useCallback((id: string, name: string) => {
@@ -167,7 +168,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const custom = useCustomTopic && trimmedTopics.every(Boolean) ? trimmedTopics : undefined;
 
     const teams = generateTeams(teamCount, custom);
-    const assigned = assignPlayersToTeams(setupPlayers, teams);
+    // 空の名前はここで計算した既定名「プレイヤーN」に確定する (以降の画面では常に非空)。
+    const namedPlayers = setupPlayers.map((player, index) => ({
+      ...player,
+      name: player.name.trim() || `プレイヤー${index + 1}`,
+    }));
+    const assigned = assignPlayersToTeams(namedPlayers, teams);
 
     setGameState({
       players: assigned,

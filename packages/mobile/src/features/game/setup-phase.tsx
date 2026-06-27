@@ -55,7 +55,8 @@ export function SetupPhase({
                 <TextInput
                   value={player.name}
                   onChangeText={(value) => onUpdatePlayerName(player.id, value)}
-                  placeholder="名前を入力"
+                  // 空のときは計算した既定名を薄く表示。未入力ならゲーム開始時にこの名前で確定する。
+                  placeholder={`プレイヤー${index + 1}`}
                   placeholderTextColor={Colors.inkMute}
                   style={[Type.body, styles.playerInput]}
                 />
