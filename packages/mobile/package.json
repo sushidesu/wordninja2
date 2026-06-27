@@ -19,7 +19,6 @@
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.8.1",
     "@react-navigation/native": "^7.1.8",
-    "@wordninja/shared": "workspace:^",
     "expo": "~54.0.33",
     "expo-constants": "~18.0.13",
     "expo-device": "~8.0.10",

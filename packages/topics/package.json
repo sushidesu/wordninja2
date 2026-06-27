@@ -1,0 +1,24 @@
+{
+  "name": "@wordninja/topics",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply wordninja-topics --local",
+    "db:migrate:remote": "wrangler d1 migrations apply wordninja-topics --remote",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.12.27"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260627.1",
+    "drizzle-kit": "^0.31.10",
+    "typescript": "~6.0.3",
+    "wrangler": "^4.105.0"
+  }
+}

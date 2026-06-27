@@ -3,8 +3,7 @@
   "private": true,
   "scripts": {
     "mobile": "pnpm --filter @wordninja/mobile start:tailscale",
-    "server": "pnpm --filter @wordninja/server dev",
-    "admin": "pnpm --filter @wordninja/admin dev",
+    "topics": "pnpm --filter @wordninja/topics dev",
     "typecheck": "pnpm -r typecheck"
   }
 }

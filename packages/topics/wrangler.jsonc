@@ -1,0 +1,13 @@
+{
+  "name": "wordninja-topics",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-27",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wordninja-topics",
+      "database_id": "local",
+      "migrations_dir": "drizzle",
+    },
+  ],
+}
