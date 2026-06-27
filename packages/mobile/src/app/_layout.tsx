@@ -6,13 +6,8 @@ import '../global.css';
 // 別インスタンスになっており "Invalid hook call" で落ちる。
 // 代わりに `expo-font` (mobile から辿る react と一致) の `useFonts` に
 // アセット定数だけを渡す形で回避する。
-import { DotGothic16_400Regular } from '@expo-google-fonts/dotgothic16';
-import {
-  ZenKakuGothicNew_400Regular,
-  ZenKakuGothicNew_500Medium,
-  ZenKakuGothicNew_700Bold,
-  ZenKakuGothicNew_900Black,
-} from '@expo-google-fonts/zen-kaku-gothic-new';
+// 本番 body(M PLUS 1) の中間ウェイト。残りの本番フォント (Dela Gothic One / M PLUS 1 400・700) は fontAssets に含まれる。
+import { MPLUS1_500Medium, MPLUS1_900Black } from '@expo-google-fonts/m-plus-1';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -21,6 +16,8 @@ import React, { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+// フォント選定中の候補一式。本番フォントに加えて起動時にロードし、/font-preview で見比べる。
+import { fontAssets } from '@/constants/font-catalog';
 import { GameProvider } from '@/features/game/game-context';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -30,11 +27,9 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const [fontsLoaded] = useFonts({
-    DotGothic16_400Regular,
-    ZenKakuGothicNew_400Regular,
-    ZenKakuGothicNew_500Medium,
-    ZenKakuGothicNew_700Bold,
-    ZenKakuGothicNew_900Black,
+    MPLUS1_500Medium,
+    MPLUS1_900Black,
+    ...fontAssets,
   });
 
   useEffect(() => {

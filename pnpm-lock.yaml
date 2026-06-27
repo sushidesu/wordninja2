@@ -44,10 +44,55 @@ importers:
 
   packages/mobile:
     dependencies:
+      '@expo-google-fonts/dela-gothic-one':
+        specifier: ^0.4.1
+        version: 0.4.1
       '@expo-google-fonts/dotgothic16':
         specifier: ^0.4.1
         version: 0.4.1
+      '@expo-google-fonts/hachi-maru-pop':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/klee-one':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/m-plus-1':
+        specifier: ^0.4.2
+        version: 0.4.2
+      '@expo-google-fonts/m-plus-rounded-1c':
+        specifier: ^0.4.3
+        version: 0.4.3
+      '@expo-google-fonts/mochiy-pop-one':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/mochiy-pop-p-one':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/murecho':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/noto-sans-jp':
+        specifier: ^0.4.3
+        version: 0.4.3
+      '@expo-google-fonts/rampart-one':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/reggae-one':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/stick':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/train-one':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/yusei-magic':
+        specifier: ^0.4.1
+        version: 0.4.1
       '@expo-google-fonts/zen-kaku-gothic-new':
+        specifier: ^0.4.1
+        version: 0.4.1
+      '@expo-google-fonts/zen-maru-gothic':
         specifier: ^0.4.1
         version: 0.4.1
       '@expo/metro-runtime':
@@ -964,11 +1009,56 @@ packages:
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@expo-google-fonts/dela-gothic-one@0.4.1':
+    resolution: {integrity: sha512-+SqDc2MBfQdDeTsVZs8cw0QL5plZgTTyuZerkiwZVwoygG+//WMrOZ/d2QC37DlJWRNN69MVSNqo3d9xg0iunw==}
+
   '@expo-google-fonts/dotgothic16@0.4.1':
     resolution: {integrity: sha512-ioNx6IGd+vFbFxWpNxtrOoiE8vecqIOQPsH72V3wyidMpf2AvQ3dUJEBgYoqOtcW7u54zJw39wXciP9yAA40EA==}
 
+  '@expo-google-fonts/hachi-maru-pop@0.4.1':
+    resolution: {integrity: sha512-Aay9Y5BoFgYky0ctL9envPSjIPyVQN7eNBekPtL96b7f8n0vF91ZyhaP4DXZvdw36ZuvfW4ANX57kBeNFzAg+A==}
+
+  '@expo-google-fonts/klee-one@0.4.1':
+    resolution: {integrity: sha512-3hMj7H5o3mD6lNPPPew1dezDVe1T+CzxSnNfH0UxdOHhxYSbbnFWPNv5CjCgf7w3zJLLuvE4a9NLEUOE/5FpOQ==}
+
+  '@expo-google-fonts/m-plus-1@0.4.2':
+    resolution: {integrity: sha512-joux0esDDGGPa49yZmW8XF0P2Oe92h++0yhEBMWgoWkTUOMI2SHwJu+U+tkwl7v1fD4DadGONkzzWX8jw0emtw==}
+
+  '@expo-google-fonts/m-plus-rounded-1c@0.4.3':
+    resolution: {integrity: sha512-ac0KX6FZqbs++JJNbF/pIn/hA/IvIYtwPiHiX71uCrkmTH4FIiAS9TsqBXimRmipgcttRj03TzeJtkhtT2LZBA==}
+
+  '@expo-google-fonts/mochiy-pop-one@0.4.1':
+    resolution: {integrity: sha512-7XCXK3EnKX4lqnYptzioNzmp22wAOtGCyIqEBDC/X74tvNEsQtxfnBkhXTuaDRLPmek60501LvlnDQKcgRWDoQ==}
+
+  '@expo-google-fonts/mochiy-pop-p-one@0.4.1':
+    resolution: {integrity: sha512-q350AdqF1/bei19X52JHytuMW5g3f/twsTHQvOvoE983tNR4ygKvNuOPQwtVuQSABhvakkRrFXSE2nSyYxaMgg==}
+
+  '@expo-google-fonts/murecho@0.4.1':
+    resolution: {integrity: sha512-3LbC9n17YEB1cFbQwoqcMxEas9DirJNYAm7FNGvB4Xbwc4PqR7n04dXrSfE0k8ZmR9oUxEWYIwVPgnzmGEwGKQ==}
+
+  '@expo-google-fonts/noto-sans-jp@0.4.3':
+    resolution: {integrity: sha512-Fl+Z6vtD24HFAYsvzB0S9Nery1ly16B9PesdY0wBd+wEHAvkNglnkTUspU0HqGOubkmoa8zusJrKv6vDx1o70A==}
+
+  '@expo-google-fonts/rampart-one@0.4.1':
+    resolution: {integrity: sha512-lNY+vspA8x4fqdLqR9qC9nPXufXtCGcfhnqHsLYIFOh1X7ttxr9py3lAJWdHz3+4FdZFDe0KXGz1hhwDV0t5iw==}
+
+  '@expo-google-fonts/reggae-one@0.4.1':
+    resolution: {integrity: sha512-vH/PAeLi3Fq0eb8JhHcuunKqWVDVkbM2XnmTZVT1CeqQTdhy3ZaJnub+3rhZ6CGyR0diLFJ5lRSkXtHaCQcQrQ==}
+
+  '@expo-google-fonts/stick@0.4.1':
+    resolution: {integrity: sha512-63ID9W+TBM0uQLmPUCD03jWpStBjsw5SbOMs/eDTFGY5Q+UobjfHyTpETqw8teBSzYQPqF+goNFHbxclrsnVow==}
+
+  '@expo-google-fonts/train-one@0.4.1':
+    resolution: {integrity: sha512-KcnEcvZWosj4tXHBYTDxIzk0E4vMxoN3QuVZeqyRxH42oMt1FVAYD/AS5C4eUnh0HgJwFjdqTHFPoCRHgJVqmw==}
+
+  '@expo-google-fonts/yusei-magic@0.4.1':
+    resolution: {integrity: sha512-HccAgnCysPr22QD44neiEY5yJHG8PkeQ8UwTX3kvWhbU4DkB2fsiSbfkWjJfiHZl9Q/Euxu+lFUaRyCwKRpVpg==}
+
   '@expo-google-fonts/zen-kaku-gothic-new@0.4.1':
     resolution: {integrity: sha512-Vm9sib0Auc/lP3K6ZvtizZdsLjUETut1hC6FL/UdM24DOXO8iZ9zfl3Fia94OFqGVDLQmnnegm5goYCXU5Lxyg==}
+
+  '@expo-google-fonts/zen-maru-gothic@0.4.1':
+    resolution: {integrity: sha512-DCDiIfyvhsq4geQRW5WBf2cxIU4qdz95RMcBMXsUgCORZUcLQEyKG/UwaRWjEBp+94GnnPEVEklhSa6DGn2raA==}
 
   '@expo/cli@54.0.23':
     resolution: {integrity: sha512-km0h72SFfQCmVycH/JtPFTVy69w6Lx1cHNDmfLfQqgKFYeeHTjx7LVDP4POHCtNxFP2UeRazrygJhlh4zz498g==}
@@ -6485,9 +6575,39 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
+  '@expo-google-fonts/dela-gothic-one@0.4.1': {}
+
   '@expo-google-fonts/dotgothic16@0.4.1': {}
 
+  '@expo-google-fonts/hachi-maru-pop@0.4.1': {}
+
+  '@expo-google-fonts/klee-one@0.4.1': {}
+
+  '@expo-google-fonts/m-plus-1@0.4.2': {}
+
+  '@expo-google-fonts/m-plus-rounded-1c@0.4.3': {}
+
+  '@expo-google-fonts/mochiy-pop-one@0.4.1': {}
+
+  '@expo-google-fonts/mochiy-pop-p-one@0.4.1': {}
+
+  '@expo-google-fonts/murecho@0.4.1': {}
+
+  '@expo-google-fonts/noto-sans-jp@0.4.3': {}
+
+  '@expo-google-fonts/rampart-one@0.4.1': {}
+
+  '@expo-google-fonts/reggae-one@0.4.1': {}
+
+  '@expo-google-fonts/stick@0.4.1': {}
+
+  '@expo-google-fonts/train-one@0.4.1': {}
+
+  '@expo-google-fonts/yusei-magic@0.4.1': {}
+
   '@expo-google-fonts/zen-kaku-gothic-new@0.4.1': {}
+
+  '@expo-google-fonts/zen-maru-gothic@0.4.1': {}
 
   '@expo/cli@54.0.23(expo-router@6.0.23)(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))':
     dependencies:
