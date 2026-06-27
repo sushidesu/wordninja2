@@ -1,16 +1,17 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AdaptiveScrollView } from '@/components/adaptive-scroll-view';
 import { HardShadow } from '@/components/hard-shadow';
 import { HighlightHeading } from '@/components/highlight-heading';
 import { MakimonoBox } from '@/components/makimono-box';
 import { PhaseFrame } from '@/components/phase-frame';
+import { ThemedText } from '@/components/themed-text';
 import { BreakLine } from '@/components/ui/break-line';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SecondaryButton } from '@/components/ui/secondary-button';
 import { StampLabel } from '@/components/ui/stamp-label';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors, Spacing, Type } from '@/constants/theme';
 
 import type { GameState, Player, Question } from './types';
 
@@ -43,47 +44,40 @@ export function PlayingPhase({
   onSubmitVotes,
   onEndGame,
 }: Props) {
-
   return (
-    <PhaseFrame
-      backgroundColor={isVoting ? Colors.spark : Colors.canvas}
-      frameColor={Colors.ink}>
+    <PhaseFrame backgroundColor={isVoting ? Colors.spark : Colors.canvas} frameColor={Colors.ink}>
       <View style={styles.gameHeader}>
-        <Text
-          style={[
-            styles.gameHeaderTitle,
-            { color: isVoting ? Colors.canvas : Colors.ink },
-          ]}>
+        <ThemedText type="labelLg" style={{ color: isVoting ? Colors.canvas : Colors.ink }}>
           ワードニンジャ
-        </Text>
+        </ThemedText>
         <HardShadow>
           <Pressable style={styles.endGameButton} onPress={onEndGame}>
-            <Text style={styles.endGameButtonText}>ゲーム終了</Text>
+            <ThemedText type="labelSm">ゲーム終了</ThemedText>
           </Pressable>
         </HardShadow>
       </View>
       <BreakLine />
 
       {!isVoting && (
-        <AdaptiveScrollView
-          style={styles.scrollArea}
-          contentContainerStyle={styles.gameContent}>
+        <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.gameContent}>
           <View style={styles.turnWrap}>
             <StampLabel>CURRENT TURN</StampLabel>
-            <HighlightHeading fontSize={44} overflowX={0} marginBottom={8}>
+            <HighlightHeading type="h1" overflowX={0} marginBottom={Spacing.sm}>
               {currentPlayer?.name ?? ''}
             </HighlightHeading>
-            <Text style={styles.turnHint}>質問を考えてください</Text>
+            <ThemedText type="bodySm" themeColor="inkSoft">
+              質問を考えてください
+            </ThemedText>
           </View>
 
           <MakimonoBox contentStyle={styles.questionCard}>
-            <Text style={styles.settingLabel}>質問内容 (任意)</Text>
+            <ThemedText type="labelSm">質問内容 (任意)</ThemedText>
             <TextInput
               value={questionText}
               onChangeText={onSetQuestionText}
               placeholder="例: それは食べ物ですか？"
               placeholderTextColor={Colors.inkMute}
-              style={styles.questionInput}
+              style={[Type.body, styles.questionInput]}
               multiline
             />
             <SecondaryButton
@@ -98,33 +92,35 @@ export function PlayingPhase({
 
           <View style={styles.historyWrap}>
             {gameState.questions.filter((q) => q.revealed).length === 0 && (
-              <Text style={styles.emptyHistory}>まだ質問はありません</Text>
+              <ThemedText type="bodySm" themeColor="inkSoft">
+                まだ質問はありません
+              </ThemedText>
             )}
 
             {[...gameState.questions]
               .reverse()
               .filter((q) => q.revealed)
               .map((question) => {
-                const yesCount = Object.values(question.votes).filter(
-                  (v) => v === 'yes',
-                ).length;
-                const noCount = Object.values(question.votes).filter(
-                  (v) => v === 'no',
-                ).length;
+                const yesCount = Object.values(question.votes).filter((v) => v === 'yes').length;
+                const noCount = Object.values(question.votes).filter((v) => v === 'no').length;
                 const asker = gameState.players.find((p) => p.id === question.askerId);
 
                 return (
                   <MakimonoBox key={question.id} contentStyle={styles.historyItemContent}>
-                    <Text style={styles.historyMeta}>{asker?.name} の質問</Text>
-                    <Text style={styles.historyQuestion}>{question.text}</Text>
+                    <ThemedText type="labelSm" style={styles.historyMeta}>
+                      {asker?.name} の質問
+                    </ThemedText>
+                    <ThemedText type="body" style={styles.historyQuestion}>
+                      {question.text}
+                    </ThemedText>
                     <View style={styles.voteResultRow}>
                       <View style={[styles.voteResultCard, styles.voteResultYes]}>
-                        <Text style={styles.yesText}>はい</Text>
-                        <Text style={styles.voteCount}>{yesCount}</Text>
+                        <ThemedText type="label">はい</ThemedText>
+                        <ThemedText type="labelLg">{yesCount}</ThemedText>
                       </View>
                       <View style={[styles.voteResultCard, styles.voteResultNo]}>
-                        <Text style={styles.noText}>いいえ</Text>
-                        <Text style={styles.voteCount}>{noCount}</Text>
+                        <ThemedText type="label">いいえ</ThemedText>
+                        <ThemedText type="labelLg">{noCount}</ThemedText>
                       </View>
                     </View>
                   </MakimonoBox>
@@ -138,19 +134,17 @@ export function PlayingPhase({
         <View style={styles.votingWrap}>
           <StampLabel color={Colors.canvas}>VOTING PHASE</StampLabel>
           <HighlightHeading
-            fontSize={32}
+            type="h2"
             overflowX={0}
             borderColor={Colors.canvas}
             color={Colors.canvas}>
             {currentQuestion.text}
           </HighlightHeading>
-          <Text style={[styles.turnHint, { color: Colors.canvas }]}>
+          <ThemedText type="bodySm" style={{ color: Colors.canvas }}>
             全員の回答を入力してください
-          </Text>
+          </ThemedText>
 
-          <AdaptiveScrollView
-            style={styles.voteList}
-            contentContainerStyle={styles.voteListContent}>
+          <AdaptiveScrollView style={styles.voteList} contentContainerStyle={styles.voteListContent}>
             <MakimonoBox contentStyle={styles.makimonoContent}>
               {gameState.players.map((player, index) => {
                 const isYes = currentVotes[player.id] === 'yes';
@@ -159,13 +153,11 @@ export function PlayingPhase({
                   <View key={player.id}>
                     {index > 0 && <View style={styles.makimonoDivider} />}
                     <View style={styles.voteRow}>
-                      <Text style={styles.votePlayerName}>{player.name}</Text>
+                      <ThemedText type="label">{player.name}</ThemedText>
                       <Pressable
                         onPress={() => onToggleVote(player.id)}
                         style={[styles.voteButton, isYes ? styles.voteYes : styles.voteNo]}>
-                        <Text style={styles.voteButtonText}>
-                          {isYes ? 'はい' : 'いいえ'}
-                        </Text>
+                        <ThemedText type="label">{isYes ? 'はい' : 'いいえ'}</ThemedText>
                       </Pressable>
                     </View>
                   </View>
@@ -184,100 +176,65 @@ export function PlayingPhase({
 const styles = StyleSheet.create({
   scrollArea: {
     flex: 1,
-    marginHorizontal: -8,
+    marginHorizontal: -Spacing.sm,
   },
   gameHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 4,
-    paddingBottom: 8,
-  },
-  gameHeaderTitle: {
-    fontFamily: Fonts.display,
-    fontSize: 22,
-    letterSpacing: 1,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
   },
   endGameButton: {
     borderWidth: BORDER,
     borderColor: Colors.ink,
     backgroundColor: Colors.canvas,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  endGameButtonText: {
-    color: Colors.ink,
-    fontSize: 11,
-    fontFamily: Fonts.display,
-    letterSpacing: 1,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
   },
   gameContent: {
-    paddingHorizontal: 8,
-    paddingTop: 4,
-    paddingBottom: 24,
+    paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xl2,
   },
   turnWrap: {
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  turnHint: {
-    color: Colors.inkSoft,
-    fontSize: 13,
-    fontFamily: Fonts.body,
-  },
-  settingLabel: {
-    color: Colors.ink,
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    letterSpacing: 1,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
   questionCard: {
-    padding: 16,
-    gap: 12,
+    padding: Spacing.lg,
+    gap: Spacing.md,
   },
   questionInput: {
     minHeight: 90,
     backgroundColor: Colors.paper,
     color: Colors.ink,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
     textAlignVertical: 'top',
-    fontFamily: Fonts.body,
-    fontSize: 15,
   },
   historyWrap: {
-    gap: 14,
-  },
-  emptyHistory: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.body,
-    fontSize: 13,
+    gap: Spacing.lg,
   },
   historyItemContent: {
-    padding: 14,
+    padding: Spacing.lg,
   },
   historyMeta: {
     color: Colors.inkSoft,
-    fontSize: 11,
-    fontFamily: Fonts.display,
-    letterSpacing: 1,
-    marginBottom: 6,
+    marginBottom: Spacing.sm,
   },
   historyQuestion: {
-    color: Colors.ink,
-    fontFamily: Fonts.body,
-    fontSize: 16,
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   voteResultRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: Spacing.md,
   },
   voteResultCard: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -288,79 +245,50 @@ const styles = StyleSheet.create({
   voteResultNo: {
     backgroundColor: Colors.canvas,
   },
-  yesText: {
-    color: Colors.ink,
-    fontFamily: Fonts.display,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  noText: {
-    color: Colors.ink,
-    fontFamily: Fonts.display,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  voteCount: {
-    color: Colors.ink,
-    fontFamily: Fonts.display,
-    fontSize: 22,
-  },
   votingWrap: {
     flex: 1,
-    paddingTop: 10,
-    paddingBottom: 20,
-    gap: 12,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.md,
   },
   voteList: {
     flex: 1,
-    marginTop: 8,
-    marginHorizontal: -8,
+    marginTop: Spacing.sm,
+    marginHorizontal: -Spacing.sm,
   },
   voteListContent: {
-    paddingHorizontal: 8,
-    paddingBottom: 8,
-    gap: 10,
+    paddingHorizontal: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.md,
   },
   makimonoContent: {
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
   },
   makimonoDivider: {
     height: 1,
     backgroundColor: Colors.paperDeep,
-    marginHorizontal: 12,
+    marginHorizontal: Spacing.md,
   },
   voteRow: {
     backgroundColor: Colors.canvas,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  votePlayerName: {
-    color: Colors.ink,
-    fontFamily: Fonts.display,
-    fontSize: 16,
-    letterSpacing: 1,
   },
   voteButton: {
     minWidth: 100,
     borderWidth: BORDER,
     borderColor: Colors.ink,
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
   },
   voteYes: {
     backgroundColor: Colors.hero,
   },
   voteNo: {
     backgroundColor: Colors.canvas,
-  },
-  voteButtonText: {
-    color: Colors.ink,
-    fontFamily: Fonts.display,
-    fontSize: 14,
-    letterSpacing: 1,
   },
 });

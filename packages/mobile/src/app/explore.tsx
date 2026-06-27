@@ -16,7 +16,7 @@ export default function TabTwoScreen() {
   const safeAreaInsets = useSafeAreaInsets();
   const insets = {
     ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
+    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.lg,
   };
   const theme = useTheme();
 
@@ -28,8 +28,8 @@ export default function TabTwoScreen() {
       paddingBottom: insets.bottom,
     },
     web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
+      paddingTop: Spacing.xl5,
+      paddingBottom: Spacing.xl2,
     },
   });
 
@@ -40,7 +40,7 @@ export default function TabTwoScreen() {
       contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
       <ThemedView style={styles.container}>
         <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
+          <ThemedText type="h2">Explore</ThemedText>
           <ThemedText style={styles.centerText} themeColor="textSecondary">
             This starter app includes example{'\n'}code to help you get started.
           </ThemedText>
@@ -61,11 +61,11 @@ export default function TabTwoScreen() {
 
         <ThemedView style={styles.sectionsWrapper}>
           <Collapsible title="File-based routing">
-            <ThemedText type="small">
+            <ThemedText type="bodySm">
               This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
               <ThemedText type="code">src/app/explore.tsx</ThemedText>
             </ThemedText>
-            <ThemedText type="small">
+            <ThemedText type="bodySm">
               The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
               the tab navigator.
             </ThemedText>
@@ -76,9 +76,9 @@ export default function TabTwoScreen() {
 
           <Collapsible title="Android, iOS, and web support">
             <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
+              <ThemedText type="bodySm">
                 You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
+                press <ThemedText type="label">w</ThemedText> in the terminal running this
                 project.
               </ThemedText>
               <Image
@@ -89,7 +89,7 @@ export default function TabTwoScreen() {
           </Collapsible>
 
           <Collapsible title="Images">
-            <ThemedText type="small">
+            <ThemedText type="bodySm">
               For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
               <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
               screen densities.
@@ -101,7 +101,7 @@ export default function TabTwoScreen() {
           </Collapsible>
 
           <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
+            <ThemedText type="bodySm">
               This template has light and dark mode support. The{' '}
               <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
               user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
@@ -112,7 +112,7 @@ export default function TabTwoScreen() {
           </Collapsible>
 
           <Collapsible title="Animations">
-            <ThemedText type="small">
+            <ThemedText type="bodySm">
               This template includes an example of an animated component. The{' '}
               <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
               the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
@@ -139,10 +139,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   titleContainer: {
-    gap: Spacing.three,
+    gap: Spacing.lg,
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+    paddingHorizontal: Spacing.xl2,
+    paddingVertical: Spacing.xl5,
   },
   centerText: {
     textAlign: 'center',
@@ -152,17 +152,17 @@ const styles = StyleSheet.create({
   },
   linkButton: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
+    paddingHorizontal: Spacing.xl2,
+    paddingVertical: Spacing.sm,
+    borderRadius: Spacing.xl3,
     justifyContent: 'center',
-    gap: Spacing.one,
+    gap: Spacing.xs,
     alignItems: 'center',
   },
   sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    gap: Spacing.xl3,
+    paddingHorizontal: Spacing.xl2,
+    paddingTop: Spacing.lg,
   },
   collapsibleContent: {
     alignItems: 'center',
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
   imageTutorial: {
     width: '100%',
     aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
+    borderRadius: Spacing.lg,
+    marginTop: Spacing.sm,
   },
   imageReact: {
     width: 100,

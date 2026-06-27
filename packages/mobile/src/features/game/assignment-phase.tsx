@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -13,9 +13,10 @@ import Animated, {
 
 import { MAKIMONO, MakimonoBox } from '@/components/makimono-box';
 import { PhaseFrame } from '@/components/phase-frame';
+import { ThemedText } from '@/components/themed-text';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { StampLabel } from '@/components/ui/stamp-label';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 
 import type { Player } from './types';
 
@@ -107,12 +108,16 @@ export function AssignmentPhase({
     <PhaseFrame backgroundColor={Colors.hero} frameColor={Colors.ink}>
       <View style={styles.container}>
         <StampLabel color={Colors.canvas}>PLAYER CHECK</StampLabel>
-        <Text style={styles.assignmentName}>{player?.name}さん</Text>
+        <ThemedText type="h2" style={styles.assignmentName}>
+          {player?.name}さん
+        </ThemedText>
 
         <GestureDetector gesture={pan}>
           <Animated.View onLayout={onContainerLayout}>
             <View style={styles.scrollPrompt}>
-              <Text style={styles.hiddenCardTitle}>← スワイプしてお題を確認</Text>
+              <ThemedText type="label" style={styles.hiddenCardTitle}>
+                ← スワイプしてお題を確認
+              </ThemedText>
             </View>
 
             <View style={styles.makimonoRow}>
@@ -122,9 +127,13 @@ export function AssignmentPhase({
                     <MakimonoBox hideRight contentStyle={styles.revealedCard}>
                       <View style={styles.revealedCardInner}>
                         <StampLabel>あなたのお題</StampLabel>
-                        <Text style={styles.revealedTopic}>{player?.topic}</Text>
+                        <ThemedText type="hero" style={styles.revealedTopic}>
+                          {player?.topic}
+                        </ThemedText>
                         <Pressable onPress={handleHide}>
-                          <Text style={styles.hideLink}>隠す</Text>
+                          <ThemedText type="labelSm" themeColor="inkSoft">
+                            隠す
+                          </ThemedText>
                         </Pressable>
                       </View>
                     </MakimonoBox>
@@ -182,20 +191,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingBottom: 20,
+    paddingBottom: Spacing.xl,
   },
   assignmentName: {
     color: Colors.canvas,
     textAlign: 'center',
-    marginTop: 4,
-    fontSize: 36,
-    fontFamily: Fonts.display,
-    marginBottom: 24,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xl2,
   },
   scrollPrompt: {
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 16,
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
   },
   makimonoRow: {
     flexDirection: 'row',
@@ -217,11 +224,8 @@ const styles = StyleSheet.create({
   },
   hiddenCardTitle: {
     color: Colors.ink,
-    fontSize: 16,
-    fontFamily: Fonts.display,
-    letterSpacing: 1,
     textAlign: 'center',
-    padding: 12,
+    padding: Spacing.md,
   },
   revealedCard: {
     minHeight: 220,
@@ -230,36 +234,22 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: Spacing.xl,
   },
   revealedTopic: {
     color: Colors.ink,
-    fontSize: 52,
-    fontFamily: Fonts.display,
-    marginBottom: 18,
-    marginTop: 4,
+    marginBottom: Spacing.xl,
+    marginTop: Spacing.xs,
     textAlign: 'center',
-  },
-  hideLink: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.display,
-    fontSize: 12,
-    letterSpacing: 1,
   },
   assignmentBottom: {
-    marginTop: 22,
-    gap: 20,
-  },
-  assignmentHint: {
-    color: Colors.canvas,
-    textAlign: 'center',
-    fontSize: 13,
-    fontFamily: Fonts.body,
+    marginTop: Spacing.xl2,
+    gap: Spacing.xl,
   },
   progressRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
+    gap: Spacing.sm,
   },
   progressDot: {
     width: 10,

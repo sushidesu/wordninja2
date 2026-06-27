@@ -1,12 +1,13 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AdaptiveScrollView } from '@/components/adaptive-scroll-view';
 import { HighlightHeading } from '@/components/highlight-heading';
 import { MakimonoBox } from '@/components/makimono-box';
 import { PhaseFrame } from '@/components/phase-frame';
+import { ThemedText } from '@/components/themed-text';
 import { SecondaryButton } from '@/components/ui/secondary-button';
-import { Colors, Fonts } from '@/constants/theme';
+import { Colors, Spacing } from '@/constants/theme';
 
 import type { GameState } from './types';
 
@@ -18,29 +19,27 @@ type Props = {
 export function ResultPhase({ gameState, onRestart }: Props) {
   return (
     <PhaseFrame backgroundColor={Colors.hero} frameColor={Colors.ink}>
-      <AdaptiveScrollView
-        style={styles.scrollArea}
-        contentContainerStyle={styles.resultContent}>
-        <HighlightHeading
-          fontSize={48}
-          overflowX={0}
-          borderColor={Colors.ink}
-          color={Colors.ink}>
+      <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.resultContent}>
+        <HighlightHeading type="h1" overflowX={0} borderColor={Colors.ink} color={Colors.ink}>
           結果発表
         </HighlightHeading>
-        <Text style={styles.subtitle}>お題を公開します</Text>
+        <ThemedText type="bodySm" style={styles.subtitle}>
+          お題を公開します
+        </ThemedText>
 
         {gameState.teams.map((team) => (
           <MakimonoBox key={team.id}>
             <View style={styles.teamCardHeader}>
-              <Text style={styles.teamTopic}>{team.topic}</Text>
+              <ThemedText type="h3" style={styles.teamTopic}>
+                {team.topic}
+              </ThemedText>
             </View>
             <View style={styles.teamPlayersWrap}>
               {gameState.players
                 .filter((player) => player.teamId === team.id)
                 .map((player) => (
                   <View key={player.id} style={styles.teamPlayerRow}>
-                    <Text style={styles.teamPlayerName}>{player.name}</Text>
+                    <ThemedText type="body">{player.name}</ThemedText>
                   </View>
                 ))}
             </View>
@@ -58,45 +57,36 @@ export function ResultPhase({ gameState, onRestart }: Props) {
 const styles = StyleSheet.create({
   scrollArea: {
     flex: 1,
-    marginHorizontal: -8,
+    marginHorizontal: -Spacing.sm,
   },
   resultContent: {
-    paddingHorizontal: 8,
-    paddingBottom: 120,
-    gap: 16,
+    paddingHorizontal: Spacing.sm,
+    paddingBottom: 120, // 下部の固定アクションに被らないためのスクロール余白
+    gap: Spacing.lg,
   },
   subtitle: {
     color: Colors.ink,
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 20,
-    fontFamily: Fonts.body,
-    fontSize: 14,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xl,
   },
   teamCardHeader: {
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
   },
   teamTopic: {
     color: Colors.ink,
-    fontFamily: Fonts.display,
-    fontSize: 28,
     textAlign: 'center',
   },
   teamPlayersWrap: {
-    padding: 14,
-    gap: 6,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
   },
   teamPlayerRow: {
-    paddingVertical: 4,
-  },
-  teamPlayerName: {
-    color: Colors.ink,
-    fontFamily: Fonts.body,
-    fontSize: 15,
+    paddingVertical: Spacing.xs,
   },
   bottomAction: {
-    paddingTop: 12,
+    paddingTop: Spacing.md,
   },
 });

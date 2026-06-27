@@ -10,7 +10,7 @@
 
 import '@/global.css';
 
-import { Platform } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 
 // ---- palette: hex を持つ唯一の場所。内部専用。外からは export しない。 ----
 const palette = {
@@ -96,18 +96,24 @@ export const TeamColors = [
 export type ThemeColor = Exclude<keyof typeof Colors, never>;
 
 /**
- * 役割ベースのフォントトークン。
- * display = ドット絵 (DotGothic16)、body = Zen Kaku Gothic New 系の和文ゴシック。
- * deviationgame.com のフォント方針を踏襲。
+ * 役割ベースのフォントトークン (3階層)。
+ * title = 極太ディスプレイ (Dela Gothic One)。大見出し・お題・名前など 28px〜のインパクト文字。
+ * label = 角ゴシック太字 (M PLUS 1 Bold)。ボタン・ラベル・バッジなど中小サイズの UI 文字。
+ * body  = 角ゴシック (M PLUS 1)。本文・入力・段落。label と同 family を太さで使い分ける。
+ *
+ * title を小サイズに使うと極太で潰れるため、display/body の2分割をやめて title/label/body に分けた。
+ * font-lab の学習プレビューで選定した組み合わせ。
  */
 export const Fonts = {
-  /** 全ての見出し・ボタン・ラベルに使うピクセル系ディスプレイフォント (英数/JP 両対応)。 */
-  display: 'DotGothic16_400Regular',
+  /** 大見出し・お題・プレイヤー名など、インパクト重視の大きな文字 (28px〜)。 */
+  title: 'DelaGothicOne_400Regular',
+  /** ボタン・ラベル・バッジなど中小サイズの UI 文字。読みやすさ重視の角ゴシック太字。 */
+  label: 'MPLUS1_700Bold',
   /** 本文・段落・入力値・補助ラベル。 */
-  body: 'ZenKakuGothicNew_400Regular',
-  bodyMedium: 'ZenKakuGothicNew_500Medium',
-  bodyBold: 'ZenKakuGothicNew_700Bold',
-  bodyBlack: 'ZenKakuGothicNew_900Black',
+  body: 'MPLUS1_400Regular',
+  bodyMedium: 'MPLUS1_500Medium',
+  bodyBold: 'MPLUS1_700Bold',
+  bodyBlack: 'MPLUS1_900Black',
   /** 旧 API 互換: コード表示など数値系。 */
   mono: Platform.select({
     ios: 'ui-monospace',
@@ -116,14 +122,49 @@ export const Fonts = {
   }),
 } as const;
 
+/**
+ * タイポグラフィの単一情報源。役割ごとに family/size/lineHeight/letterSpacing をまとめた8段スケール。
+ *
+ * テキストは原則 `ThemedText`（`<ThemedText type="...">`）経由で使う。`ThemedText` が扱えない
+ * `TextInput` などの例外だけ `Type.body` のようにここから直接参照する。画面側に生の fontSize/fontFamily
+ * を書かない。fontWeight は使わない（family 自体が太さを持つ custom font では無効）。
+ */
+export const Type = {
+  // ---- title (Dela Gothic One) ----
+  hero: { fontFamily: Fonts.title, fontSize: 52, lineHeight: 56 },
+  h1: { fontFamily: Fonts.title, fontSize: 40, lineHeight: 44 },
+  h2: { fontFamily: Fonts.title, fontSize: 32, lineHeight: 36 },
+  h3: { fontFamily: Fonts.title, fontSize: 24, lineHeight: 28 },
+  // ---- label (M PLUS 1 Bold) ----
+  labelLg: { fontFamily: Fonts.label, fontSize: 20, lineHeight: 24, letterSpacing: 1 },
+  label: { fontFamily: Fonts.label, fontSize: 14, lineHeight: 20, letterSpacing: 1 },
+  labelSm: { fontFamily: Fonts.label, fontSize: 12, lineHeight: 16, letterSpacing: 1 },
+  // ---- body (M PLUS 1) ----
+  body: { fontFamily: Fonts.body, fontSize: 16, lineHeight: 24 },
+  bodySm: { fontFamily: Fonts.body, fontSize: 14, lineHeight: 20 },
+  caption: { fontFamily: Fonts.body, fontSize: 12, lineHeight: 16 },
+  // ---- 機能 ----
+  link: { fontFamily: Fonts.body, fontSize: 14, lineHeight: 20 },
+  linkPrimary: { fontFamily: Fonts.body, fontSize: 14, lineHeight: 20 },
+  code: { fontFamily: Fonts.mono, fontSize: 12, lineHeight: 16 },
+} satisfies Record<string, TextStyle>;
+
+/**
+ * 余白の単一情報源。4pt グリッドの規則的なスケール。
+ * 余白 (padding/margin/gap) は必ずこのトークンを使い、画面側に生の数値を書かない。
+ * width/height など「レイアウト固有の寸法」はリズムではないので対象外 (生値のままでよい)。
+ */
 export const Spacing = {
-  half: 2,
-  one: 4,
-  two: 8,
-  three: 16,
-  four: 24,
-  five: 32,
-  six: 64,
+  hairline: 2,
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xl2: 24,
+  xl3: 32,
+  xl4: 48,
+  xl5: 64,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

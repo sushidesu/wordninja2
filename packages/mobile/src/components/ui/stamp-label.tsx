@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, type StyleProp, type TextStyle } from 'react-native';
+import { StyleSheet, type StyleProp, type TextStyle } from 'react-native';
 
-import { Colors, Fonts } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/theme';
 
 type Props = {
   children: React.ReactNode;
@@ -9,15 +10,17 @@ type Props = {
   style?: StyleProp<TextStyle>;
 };
 
+/** スタンプ風のラベル。label ロール + 広めの字間 (スタンプの意匠) で見出しの上に置く。 */
 export function StampLabel({ children, color = Colors.ink, style }: Props) {
-  return <Text style={[styles.stamp, { color }, style]}>{children}</Text>;
+  return (
+    <ThemedText type="label" style={[styles.stamp, { color }, style]}>
+      {children}
+    </ThemedText>
+  );
 }
 
 const styles = StyleSheet.create({
   stamp: {
-    fontFamily: Fonts.display,
-    fontSize: 11,
     letterSpacing: 2,
-    color: Colors.ink,
   },
 });

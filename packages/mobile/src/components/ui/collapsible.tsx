@@ -27,7 +27,7 @@ export function Collapsible({ children, title }: PropsWithChildren & { title: st
           />
         </ThemedView>
 
-        <ThemedText type="small">{title}</ThemedText>
+        <ThemedText type="bodySm">{title}</ThemedText>
       </Pressable>
       {isOpen && (
         <Animated.View entering={FadeIn.duration(200)}>
@@ -44,22 +44,22 @@ const styles = StyleSheet.create({
   heading: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.sm,
   },
   pressedHeading: {
     opacity: 0.7,
   },
   button: {
-    width: Spacing.four,
-    height: Spacing.four,
+    width: Spacing.xl2,
+    height: Spacing.xl2,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
   content: {
-    marginTop: Spacing.three,
-    borderRadius: Spacing.three,
-    marginLeft: Spacing.four,
-    padding: Spacing.four,
+    marginTop: Spacing.lg,
+    borderRadius: Spacing.lg,
+    marginLeft: Spacing.xl2,
+    padding: Spacing.xl2,
   },
 });

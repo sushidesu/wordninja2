@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type TextStyle, type ViewStyle } from 'react-native';
 
-import { Colors, Fonts } from '@/constants/theme';
+import { ThemedText, type ThemedTextType } from '@/components/themed-text';
+import { Colors, Spacing } from '@/constants/theme';
 
 /**
  * deviationgame.com の `.heading-1.highlight` を再現する見出しラッパー。
@@ -16,7 +17,7 @@ import { Colors, Fonts } from '@/constants/theme';
  * ```
  *
  * 3px の矩形枠がテキストを囲み、親のコンテナから左右にハミ出す。
- * モバイルでは横のハミ出し量を控えめに (既定 16px) するが、視覚的な意図は同じ。
+ * 文字スタイルは `ThemedText` の見出しロール (title 系) に委譲する。
  */
 
 type Props = {
@@ -25,13 +26,13 @@ type Props = {
   borderColor?: string;
   /** 文字色。既定は `Colors.ink`。 */
   color?: string;
-  /** 文字サイズ。既定 44。 */
-  fontSize?: number;
-  /** 左右のハミ出し量 (ネガティブ margin)。既定 16。 */
+  /** 見出しの大きさ (title 系ロール)。既定 hero。 */
+  type?: Extract<ThemedTextType, 'hero' | 'h1' | 'h2' | 'h3'>;
+  /** 左右のハミ出し量 (ネガティブ margin)。既定 lg。 */
   overflowX?: number;
-  /** 内側の padding。既定 24。 */
+  /** 内側の padding。既定 xl2。 */
   padding?: number;
-  /** 下の margin。既定 24。 */
+  /** 下の margin。既定 xl2。 */
   marginBottom?: number;
   /** テキスト配置。既定 center。 */
   align?: 'center' | 'left' | 'right';
@@ -45,10 +46,10 @@ export function HighlightHeading({
   children,
   borderColor = Colors.ink,
   color = Colors.ink,
-  fontSize = 44,
-  overflowX = 16,
-  padding = 24,
-  marginBottom = 24,
+  type = 'hero',
+  overflowX = Spacing.lg,
+  padding = Spacing.xl2,
+  marginBottom = Spacing.xl2,
   align = 'center',
   style,
   textStyle,
@@ -66,19 +67,9 @@ export function HighlightHeading({
         },
         style,
       ]}>
-      <Text
-        style={[
-          styles.text,
-          {
-            color,
-            fontSize,
-            textAlign: align,
-            lineHeight: Math.round(fontSize * 1.1),
-          },
-          textStyle,
-        ]}>
+      <ThemedText type={type} style={[{ color, textAlign: align }, textStyle]}>
         {children}
-      </Text>
+      </ThemedText>
     </View>
   );
 }
@@ -86,8 +77,5 @@ export function HighlightHeading({
 const styles = StyleSheet.create({
   wrap: {
     borderWidth: 3,
-  },
-  text: {
-    fontFamily: Fonts.display,
   },
 });

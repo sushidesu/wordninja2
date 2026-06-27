@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Spacing } from '@/constants/theme';
+
 /**
  * 画面全体を包むフレーム。
  *
@@ -40,8 +42,8 @@ const styles = StyleSheet.create({
   },
   inner: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.lg,
   },
 });

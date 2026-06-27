@@ -1,73 +1,30 @@
-import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
+import { Text, type TextProps } from 'react-native';
 
-import { Colors, Fonts, ThemeColor } from '@/constants/theme';
+import { ThemeColor, Type } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
+/**
+ * アプリ全テキストの入口。役割 (`type`) を選ぶと family/size/lineHeight/letterSpacing が
+ * `Type` トークンからまとめて決まる。生の fontSize/fontFamily を画面側に書かないことで一貫させる。
+ *
+ * 階層:
+ * - title 系 (Dela): hero / h1 / h2 / h3 — 大見出し・お題・名前。
+ * - label 系 (M PLUS 1 Bold): labelLg(ボタン) / label / labelSm(バッジ) — UI 文字。
+ * - body 系 (M PLUS 1): body / bodySm / caption — 本文・補助。
+ * - 機能: link / linkPrimary / code。
+ *
+ * `TextInput` など Text 以外は `Type.body` を直接参照する (theme.ts 参照)。
+ */
+export type ThemedTextType = keyof typeof Type;
+
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?: ThemedTextType;
   themeColor?: ThemeColor;
 };
 
-export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
+export function ThemedText({ style, type = 'body', themeColor, ...rest }: ThemedTextProps) {
   const theme = useTheme();
+  const color = theme[themeColor ?? (type === 'linkPrimary' ? 'flame' : 'text')];
 
-  return (
-    <Text
-      style={[
-        { color: theme[themeColor ?? 'text'] },
-        type === 'default' && styles.default,
-        type === 'title' && styles.title,
-        type === 'small' && styles.small,
-        type === 'smallBold' && styles.smallBold,
-        type === 'subtitle' && styles.subtitle,
-        type === 'link' && styles.link,
-        type === 'linkPrimary' && styles.linkPrimary,
-        type === 'code' && styles.code,
-        style,
-      ]}
-      {...rest}
-    />
-  );
+  return <Text style={[{ color }, Type[type], style]} {...rest} />;
 }
-
-const styles = StyleSheet.create({
-  small: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 500,
-  },
-  smallBold: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: 700,
-  },
-  default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 500,
-  },
-  title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
-  },
-  subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
-  },
-  link: {
-    lineHeight: 30,
-    fontSize: 14,
-  },
-  linkPrimary: {
-    lineHeight: 30,
-    fontSize: 14,
-    color: Colors.flame,
-  },
-  code: {
-    fontFamily: Fonts.mono,
-    fontWeight: Platform.select({ android: 700 }) ?? 500,
-    fontSize: 12,
-  },
-});
