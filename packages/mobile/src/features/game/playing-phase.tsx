@@ -1,3 +1,7 @@
+// ⚠️ オンライン用の「質問-投票」画面。現在オフラインでは未使用（/playing は play-phase.tsx を表示）。
+// オフラインは対面プレイのため質問-投票は不要。オンライン実装時にルートをここへ戻して復帰する。
+// 関連する state/関数 (isVoting, questions, startVoting, toggleVote, submitVotes 等) も
+// game-context.tsx に温存してある。削除しないこと。
 import React from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
