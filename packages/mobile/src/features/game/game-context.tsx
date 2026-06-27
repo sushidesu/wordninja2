@@ -5,16 +5,23 @@ import { TeamColors } from '@/constants/theme';
 import { INITIAL_GAME_STATE, TOPICS } from './constants';
 import type { GameState, Player, Team } from './types';
 
-function generateTeams(teamCount: number, customTopics?: { teamA: string; teamB: string }): Team[] {
+/** ランダムなテーマグループからチーム数ぶんの語を重複なく選ぶ。 */
+function pickRandomTopics(teamCount: number): string[] {
+  const group = TOPICS[Math.floor(Math.random() * TOPICS.length)];
+  const shuffled = [...group].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, teamCount);
+}
+
+/** チーム数ぶんのチームを生成し、各チームに別々のお題を1語ずつ割り当てる。 */
+function generateTeams(teamCount: number, customTopics?: string[]): Team[] {
   const teamNames = ['赤チーム', '青チーム', '緑チーム', '黄チーム'];
-  const selected = customTopics ?? TOPICS[Math.floor(Math.random() * TOPICS.length)];
-  const topics = [selected.teamA, selected.teamB];
+  const topics = customTopics ?? pickRandomTopics(teamCount);
 
   return Array.from({ length: teamCount }, (_, index) => ({
     id: `team-${index}`,
     name: teamNames[index % teamNames.length],
     color: TeamColors[index % TeamColors.length],
-    topic: topics[index % topics.length] ?? '???',
+    topic: topics[index] ?? '???',
   }));
 }
 
@@ -38,15 +45,13 @@ type GameContextValue = {
   setupPlayers: Player[];
   teamCount: number;
   useCustomTopic: boolean;
-  customTopicA: string;
-  customTopicB: string;
+  customTopics: string[];
   addPlayer: () => void;
   updatePlayerName: (id: string, name: string) => void;
   removePlayer: (id: string) => void;
   setTeamCount: (count: number) => void;
   setUseCustomTopic: (value: boolean) => void;
-  setCustomTopicA: (value: string) => void;
-  setCustomTopicB: (value: string) => void;
+  updateCustomTopic: (index: number, value: string) => void;
 
   // ---- game state ----
   gameState: GameState;
@@ -114,8 +119,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   ]);
   const [teamCount, setTeamCount] = useState(2);
   const [useCustomTopic, setUseCustomTopic] = useState(false);
-  const [customTopicA, setCustomTopicA] = useState('');
-  const [customTopicB, setCustomTopicB] = useState('');
+  // チームごとのお題。最大チーム数 (4) ぶん確保し、teamCount ぶんだけ使う。
+  const [customTopics, setCustomTopics] = useState<string[]>(['', '', '', '']);
+
+  const updateCustomTopic = useCallback((index: number, value: string) => {
+    setCustomTopics((prev) => prev.map((topic, i) => (i === index ? value : topic)));
+  }, []);
 
   const [assignmentIndex, setAssignmentIndex] = useState(0);
   const [assignmentRevealed, setAssignmentRevealed] = useState(false);
@@ -153,10 +162,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const startGame = useCallback(() => {
     if (setupPlayers.length < 2) return;
 
-    const custom =
-      useCustomTopic && customTopicA.trim() && customTopicB.trim()
-        ? { teamA: customTopicA.trim(), teamB: customTopicB.trim() }
-        : undefined;
+    const trimmedTopics = customTopics.slice(0, teamCount).map((topic) => topic.trim());
+    // カスタムは全チーム分が埋まっているときだけ採用。未入力があればランダムにフォールバック。
+    const custom = useCustomTopic && trimmedTopics.every(Boolean) ? trimmedTopics : undefined;
 
     const teams = generateTeams(teamCount, custom);
     const assigned = assignPlayersToTeams(setupPlayers, teams);
@@ -172,7 +180,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setIsVoting(false);
     setQuestionText('');
     setCurrentVotes({});
-  }, [setupPlayers, teamCount, useCustomTopic, customTopicA, customTopicB]);
+  }, [setupPlayers, teamCount, useCustomTopic, customTopics]);
 
   const restartGame = useCallback(() => {
     setGameState(INITIAL_GAME_STATE);
@@ -238,15 +246,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setupPlayers,
       teamCount,
       useCustomTopic,
-      customTopicA,
-      customTopicB,
+      customTopics,
       addPlayer,
       updatePlayerName,
       removePlayer,
       setTeamCount,
       setUseCustomTopic,
-      setCustomTopicA,
-      setCustomTopicB,
+      updateCustomTopic,
       gameState,
       currentPlayer,
       currentQuestion,
@@ -271,11 +277,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       setupPlayers,
       teamCount,
       useCustomTopic,
-      customTopicA,
-      customTopicB,
+      customTopics,
       addPlayer,
       updatePlayerName,
       removePlayer,
+      updateCustomTopic,
       gameState,
       currentPlayer,
       currentQuestion,
