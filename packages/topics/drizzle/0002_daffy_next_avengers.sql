@@ -1,0 +1,1 @@
+ALTER TABLE `topic_set_candidates` ADD `score` real;

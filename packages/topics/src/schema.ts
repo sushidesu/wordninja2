@@ -44,6 +44,22 @@ export const wordEmbeddings = sqliteTable(
   (t) => [primaryKey({ columns: [t.wordId, t.model] })],
 );
 
+// 生成された候補（未登録）。topic_sets とは別ライフサイクル
+// （生成→編集→登録/却下）。登録時に topic_sets へ昇格し、候補は消える。
+// 編集前提の一時データなので words は JSON 配列で軽量に持つ。
+export const topicSetCandidates = sqliteTable("topic_set_candidates", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  words: text("words").notNull(), // JSON: string[]
+  source: text("source"), // 生成元（agent/プロンプト名など）
+  note: text("note"), // 生成理由 / ルーブリック採点の内訳
+  score: real("score"), // ルーブリック自動評価の予測スコア（0.0〜1.0, 未採点は null）
+  verdict: text("verdict"), // 人の判定: "good" | "close" | "bad" | null
+  feedback: text("feedback"), // 人の自由コメント（膨張ループの入力）
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 // 評価軸: お題セット×評価者の 1:N。距離とは独立した別軸。
 export const topicSetEvaluations = sqliteTable(
   "topic_set_evaluations",
