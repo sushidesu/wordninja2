@@ -34,7 +34,7 @@ const palette = {
   teamGreen: '#16A34A',
   teamYellow: '#CA8A04',
   // チーム分けの可視化色 (emerald / amber / rose / indigo)
-  splitEmerald: '#34D399',
+  splitEmerald: '#11D480',
   splitAmber: '#FBBF24',
   splitRose: '#FB7185',
   splitIndigo: '#818CF8',
