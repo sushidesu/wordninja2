@@ -4,7 +4,6 @@ import {
   normalizeRating,
   RATINGS,
   ratingMeta,
-  REASON_PRESETS,
   RELATION_PRESETS,
   WORDS_PER_TOPIC,
 } from "./config";
@@ -247,7 +246,6 @@ export const TopicDetailPage: FC<{ topic: Topic }> = ({ topic }) => (
               <div class="row" style="border-bottom:1px solid #e3e6ea; padding:6px 0">
                 <RatingChip rating={e.rating} />
                 {e.relation && <span class="chip">{e.relation}</span>}
-                <span class="muted">{e.reason}</span>
                 <span class="muted">{e.createdAt}</span>
                 <span class="spacer" />
                 <form method="post" action={`/evaluations/${e.id}/delete`}>
@@ -275,7 +273,7 @@ export const TopicDetailPage: FC<{ topic: Topic }> = ({ topic }) => (
             </select>
           </div>
         </div>
-        <label>関係タイプ（任意・良ペア向け。無ければ自由入力＝新タイプ）</label>
+        <label>関係タイプ（採用ペアに付与。無ければ自由入力＝新タイプ）</label>
         <div class="row" style="margin-bottom:6px">
           {RELATION_PRESETS.map((p) => (
             <button type="button" class="sub" onclick={`setRelation('${p}')`}>
@@ -284,20 +282,11 @@ export const TopicDetailPage: FC<{ topic: Topic }> = ({ topic }) => (
           ))}
         </div>
         <input type="text" name="relation" id="relation-input" placeholder="例: 機能ペア" />
-        <label>理由（任意）</label>
-        <div class="row" style="margin-bottom:6px">
-          {REASON_PRESETS.map((p) => (
-            <button type="button" class="sub" onclick={`addReason('${p}')`}>
-              {p}
-            </button>
-          ))}
-        </div>
-        <textarea name="reason" id="reason-input" />
         <div style="margin-top:10px"><button type="submit">評価を追加</button></div>
       </form>
       <script
         dangerouslySetInnerHTML={{
-          __html: `function addReason(t){const el=document.getElementById('reason-input');el.value=el.value?el.value+' / '+t:t;}function setRelation(t){document.getElementById('relation-input').value=t;}`,
+          __html: `function setRelation(t){document.getElementById('relation-input').value=t;}`,
         }}
       />
     </div>

@@ -80,7 +80,6 @@ app.post("/topics/:id/eval", async (c) => {
       field(body, "evaluator").trim() || "human",
       rating,
       field(body, "relation").trim() || null,
-      field(body, "reason").trim() || null,
     );
   }
   return c.redirect(`/topics/${id}`, 303);

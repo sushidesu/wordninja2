@@ -9,7 +9,6 @@ export type Evaluation = {
   evaluator: string;
   rating: number;
   relation: string | null;
-  reason: string | null;
   createdAt: string;
 };
 
@@ -116,11 +115,8 @@ export async function addEvaluation(
   evaluator: string,
   rating: number,
   relation: string | null,
-  reason: string | null,
 ): Promise<void> {
-  await db
-    .insert(evaluations)
-    .values({ topicId, evaluator, rating, relation, reason });
+  await db.insert(evaluations).values({ topicId, evaluator, rating, relation });
   await recomputeScore(db, topicId);
 }
 
@@ -173,7 +169,6 @@ function assemble(
         evaluator: e.evaluator,
         rating: e.rating,
         relation: e.relation,
-        reason: e.reason,
         createdAt: e.createdAt,
       })),
   };

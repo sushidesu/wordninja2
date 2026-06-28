@@ -63,7 +63,6 @@ api.post("/evaluations", async (c) => {
     evaluator: string;
     rating: number;
     relation?: string;
-    reason?: string;
   };
   const body = await c.req.json<Item | { evaluations: Item[] }>();
   const items = "evaluations" in body ? body.evaluations : [body];
@@ -78,11 +77,15 @@ api.post("/evaluations", async (c) => {
       it.evaluator,
       it.rating,
       it.relation ?? null,
-      it.reason ?? null,
     );
   }
   return c.json({ ok: true, count: items.length }, 201);
 });
+
+// 採用プールの集計（関係タイプ被覆を含む）。校正ループが生成を逸らすのに使う。
+api.get("/coverage", async (c) =>
+  c.json(repo.summarize(await repo.listTopics(createDb(c.env.DB)))),
+);
 
 api.delete("/evaluations/:id", async (c) => {
   await repo.deleteEvaluation(createDb(c.env.DB), Number(c.req.param("id")));
