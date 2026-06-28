@@ -33,6 +33,11 @@ const palette = {
   teamBlue: '#2563EB',
   teamGreen: '#16A34A',
   teamYellow: '#CA8A04',
+  // チーム分けの可視化色 (emerald / amber / rose / indigo)
+  splitEmerald: '#34D399',
+  splitAmber: '#FBBF24',
+  splitRose: '#FB7185',
+  splitIndigo: '#818CF8',
 } as const;
 
 // ---- 役割ベースの公開トークン。アプリコードはこれだけを触る。 ----
@@ -91,6 +96,16 @@ export const TeamColors = [
   palette.teamBlue,
   palette.teamGreen,
   palette.teamYellow,
+] as const;
+
+/**
+ * チーム分けの可視化色。チーム数セレクタの色ドット/比率バー、結果の巻物などで index 順に使う。
+ */
+export const TeamSplitColors = [
+  palette.splitEmerald,
+  palette.splitAmber,
+  palette.splitRose,
+  palette.splitIndigo,
 ] as const;
 
 export type ThemeColor = Exclude<keyof typeof Colors, never>;

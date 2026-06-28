@@ -74,20 +74,40 @@ async function recomputeScore(db: Db, topicId: string): Promise<void> {
   await db.update(topics).set({ score }).where(eq(topics.id, topicId));
 }
 
+// 作成し、採番した id と挿入した語(id付き)を返す。語 id を返すことで
+// 呼び出し側が getTopic を再取得しなくて済む（screen の N+1 回避）。
 export async function createTopic(
   db: Db,
   wordTexts: string[],
   source: string | null,
-): Promise<string> {
+): Promise<{ id: string; words: { id: number; text: string }[] }> {
   let id = genId();
   while (await exists(db, id)) id = genId();
   await db.insert(topics).values({ id, source, score: null });
+  let wordRows: { id: number; text: string }[] = [];
   if (wordTexts.length > 0) {
-    await db
+    wordRows = await db
       .insert(words)
-      .values(wordTexts.map((text) => ({ topicId: id, text })));
+      .values(wordTexts.map((text) => ({ topicId: id, text })))
+      .returning({ id: words.id, text: words.text });
   }
-  return id;
+  return { id, words: wordRows };
+}
+
+// 既存お題の「語の集合キー」一覧（重複判定用）。評価を読まない軽量クエリ。
+export async function existingWordKeys(db: Db): Promise<Set<string>> {
+  const rows = await db
+    .select({ topicId: words.topicId, text: words.text })
+    .from(words);
+  const byTopic = new Map<string, string[]>();
+  for (const r of rows) {
+    const arr = byTopic.get(r.topicId) ?? [];
+    arr.push(r.text);
+    byTopic.set(r.topicId, arr);
+  }
+  return new Set(
+    [...byTopic.values()].map((ts) => ts.slice().sort().join(" ")),
+  );
 }
 
 export async function addEvaluation(

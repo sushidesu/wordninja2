@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, TeamSplitColors } from '@/constants/theme';
 
 /**
  * チーム数セレクタ（リファレンスの "Card Merge" パターン）。
@@ -27,9 +27,6 @@ const SHADOW_OFFSET = 3;
 const BORDER = 3;
 const RADIUS = 12;
 const DURATION = 300;
-
-/** チーム分けの色（リファレンス: emerald / amber / rose / indigo の 400）。 */
-const TEAM_SPLIT_COLORS = ['#34D399', '#FBBF24', '#FB7185', '#818CF8'];
 
 type Props = {
   value: number;
@@ -116,7 +113,7 @@ function TeamCard({ num, selected, disabled, sizes, onPress }: CardProps) {
           <View style={styles.dotsRow}>
             {sizes.map((size, idx) => (
               <View key={idx} style={styles.dotItem}>
-                <View style={[styles.dot, { backgroundColor: TEAM_SPLIT_COLORS[idx] }]} />
+                <View style={[styles.dot, { backgroundColor: TeamSplitColors[idx] }]} />
                 <ThemedText type="caption" themeColor="inkSoft">
                   {size}人
                 </ThemedText>
@@ -131,7 +128,7 @@ function TeamCard({ num, selected, disabled, sizes, onPress }: CardProps) {
             <BarSegment
               key={idx}
               size={size}
-              color={TEAM_SPLIT_COLORS[idx]}
+              color={TeamSplitColors[idx]}
               last={idx === sizes.length - 1}
             />
           ))}

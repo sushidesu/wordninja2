@@ -7,7 +7,7 @@ import { MakimonoBox } from '@/components/makimono-box';
 import { PhaseFrame } from '@/components/phase-frame';
 import { ThemedText } from '@/components/themed-text';
 import { SecondaryButton } from '@/components/ui/secondary-button';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Spacing, TeamSplitColors } from '@/constants/theme';
 
 import type { GameState } from './types';
 
@@ -27,10 +27,12 @@ export function ResultPhase({ gameState, onRestart }: Props) {
           お題を公開します
         </ThemedText>
 
-        {gameState.teams.map((team) => (
-          <MakimonoBox key={team.id}>
+        {gameState.teams.map((team, index) => (
+          <MakimonoBox
+            key={team.id}
+            rodColor={TeamSplitColors[index % TeamSplitColors.length]}>
             <View style={styles.teamCardHeader}>
-              <ThemedText type="h3" style={styles.teamTopic}>
+              <ThemedText type="h2" style={styles.teamTopic}>
                 {team.topic}
               </ThemedText>
             </View>

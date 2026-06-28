@@ -50,7 +50,7 @@ app.post("/topics", async (c) => {
   const body = await c.req.parseBody();
   const wordList = parseWords(field(body, "words"));
   if (wordList.length !== WORDS_PER_TOPIC) return c.redirect("/", 303);
-  const id = await repo.createTopic(createDb(c.env.DB), wordList, "manual");
+  const { id } = await repo.createTopic(createDb(c.env.DB), wordList, "manual");
   return c.redirect(`/topics/${id}`, 303);
 });
 
