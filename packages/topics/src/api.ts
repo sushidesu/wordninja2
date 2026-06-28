@@ -54,6 +54,7 @@ api.post("/evaluations", async (c) => {
     topicId: string;
     evaluator: string;
     rating: number;
+    relation?: string;
     reason?: string;
   };
   const body = await c.req.json<Item | { evaluations: Item[] }>();
@@ -68,6 +69,7 @@ api.post("/evaluations", async (c) => {
       it.topicId,
       it.evaluator,
       it.rating,
+      it.relation ?? null,
       it.reason ?? null,
     );
   }

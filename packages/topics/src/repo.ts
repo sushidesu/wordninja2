@@ -7,6 +7,7 @@ export type Evaluation = {
   id: number;
   evaluator: string;
   rating: number;
+  relation: string | null;
   reason: string | null;
   createdAt: string;
 };
@@ -93,9 +94,12 @@ export async function addEvaluation(
   topicId: string,
   evaluator: string,
   rating: number,
+  relation: string | null,
   reason: string | null,
 ): Promise<void> {
-  await db.insert(evaluations).values({ topicId, evaluator, rating, reason });
+  await db
+    .insert(evaluations)
+    .values({ topicId, evaluator, rating, relation, reason });
   await recomputeScore(db, topicId);
 }
 
@@ -147,6 +151,7 @@ function assemble(
         id: e.id,
         evaluator: e.evaluator,
         rating: e.rating,
+        relation: e.relation,
         reason: e.reason,
         createdAt: e.createdAt,
       })),
@@ -166,11 +171,13 @@ export type Summary = {
   accepted: number;
   rejected: number;
   ratings: Record<number, number>; // human 評点(1..5)ごとの件数
+  relations: Record<string, number>; // 採用ペアの関係タイプ別件数（QD カバレッジ）
 };
 
-// 一覧結果から集計（純関数）。評点分布は human 評価から取る。
+// 一覧結果から集計（純関数）。評点分布と関係タイプ被覆を human 評価から取る。
 export function summarize(topics: Topic[]): Summary {
   const ratings: Record<number, number> = {};
+  const relations: Record<string, number> = {};
   let unrated = 0;
   let accepted = 0;
   let rejected = 0;
@@ -183,8 +190,13 @@ export function summarize(topics: Topic[]): Summary {
         ratings[e.rating] = (ratings[e.rating] ?? 0) + 1;
       }
     }
+    // 関係タイプ被覆: 採用ペアごとに1つ（誰のラベルでも可。LLMが付ける）
+    if (t.accepted) {
+      const rel = t.evaluations.find((e) => e.relation)?.relation;
+      if (rel) relations[rel] = (relations[rel] ?? 0) + 1;
+    }
   }
-  return { total: topics.length, unrated, accepted, rejected, ratings };
+  return { total: topics.length, unrated, accepted, rejected, ratings, relations };
 }
 
 export async function getTopic(db: Db, id: string): Promise<Topic | undefined> {

@@ -79,6 +79,7 @@ app.post("/topics/:id/eval", async (c) => {
       id,
       field(body, "evaluator").trim() || "human",
       rating,
+      field(body, "relation").trim() || null,
       field(body, "reason").trim() || null,
     );
   }

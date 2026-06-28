@@ -20,6 +20,18 @@ export const ratingMeta = (r: number) =>
 // 理由入力の補助プリセット（自由文に挿入するだけ。集約には使わない）。
 export const REASON_PRESETS = ["近すぎ", "予測可能", "平凡", "遠すぎ", "意味不明"];
 
+// 関係タイプ（QD の behavior descriptor）の補助プリセット。開語彙で、
+// 良ペアに付ける。ここに無いものは自由入力（新タイプ＝novelty）。ADR 0003。
+export const RELATION_PRESETS = [
+  "co-hyponym(同カテゴリ)",
+  "共有プロパティ",
+  "機能ペア",
+  "部分-全体",
+  "因果",
+  "文化的共起",
+  "対比",
+];
+
 export const isValidRating = (r: number): boolean =>
   Number.isInteger(r) && r >= RATING_MIN && r <= RATING_MAX;
 

@@ -5,6 +5,7 @@ import {
   RATINGS,
   ratingMeta,
   REASON_PRESETS,
+  RELATION_PRESETS,
   WORDS_PER_TOPIC,
 } from "./config";
 import type { Evaluation, Summary, Topic } from "./repo";
@@ -148,6 +149,17 @@ export const TopicsListPage: FC<{
           </span>
         ))}
       </div>
+      <div class="row" style="margin-top:6px">
+        <span class="muted">関係タイプ被覆(採用):</span>
+        {Object.entries(summary.relations).length === 0 && (
+          <span class="muted">（未ラベル）</span>
+        )}
+        {Object.entries(summary.relations)
+          .sort((a, b) => b[1] - a[1])
+          .map(([rel, n]) => (
+            <span class="chip">{rel} {n}</span>
+          ))}
+      </div>
     </div>
 
     <div class="card">
@@ -234,6 +246,7 @@ export const TopicDetailPage: FC<{ topic: Topic }> = ({ topic }) => (
             .map((e) => (
               <div class="row" style="border-bottom:1px solid #e3e6ea; padding:6px 0">
                 <RatingChip rating={e.rating} />
+                {e.relation && <span class="chip">{e.relation}</span>}
                 <span class="muted">{e.reason}</span>
                 <span class="muted">{e.createdAt}</span>
                 <span class="spacer" />
@@ -262,6 +275,15 @@ export const TopicDetailPage: FC<{ topic: Topic }> = ({ topic }) => (
             </select>
           </div>
         </div>
+        <label>関係タイプ（任意・良ペア向け。無ければ自由入力＝新タイプ）</label>
+        <div class="row" style="margin-bottom:6px">
+          {RELATION_PRESETS.map((p) => (
+            <button type="button" class="sub" onclick={`setRelation('${p}')`}>
+              {p}
+            </button>
+          ))}
+        </div>
+        <input type="text" name="relation" id="relation-input" placeholder="例: 機能ペア" />
         <label>理由（任意）</label>
         <div class="row" style="margin-bottom:6px">
           {REASON_PRESETS.map((p) => (
@@ -275,7 +297,7 @@ export const TopicDetailPage: FC<{ topic: Topic }> = ({ topic }) => (
       </form>
       <script
         dangerouslySetInnerHTML={{
-          __html: `function addReason(t){const el=document.getElementById('reason-input');el.value=el.value?el.value+' / '+t:t;}`,
+          __html: `function addReason(t){const el=document.getElementById('reason-input');el.value=el.value?el.value+' / '+t:t;}function setRelation(t){document.getElementById('relation-input').value=t;}`,
         }}
       />
     </div>

@@ -39,6 +39,7 @@ export const evaluations = sqliteTable("evaluations", {
     .references(() => topics.id, { onDelete: "cascade" }),
   evaluator: text("evaluator").notNull(), // "human" | "llm:v4" | "user" ...
   rating: integer("rating").notNull(), // 1..5
+  relation: text("relation"), // 関係タイプ（QD descriptor, 開語彙。良ペアで付与）
   reason: text("reason"),
   createdAt: text("created_at")
     .notNull()
