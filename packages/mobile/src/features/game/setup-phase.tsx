@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AdaptiveScrollView } from '@/components/adaptive-scroll-view';
@@ -10,6 +10,8 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { StampLabel } from '@/components/ui/stamp-label';
 import { Colors, Spacing, Type } from '@/constants/theme';
+
+import { TeamSizeSelector } from './team-size-selector';
 
 import type { Player } from './types';
 
@@ -40,6 +42,12 @@ export function SetupPhase({
   onUpdateCustomTopic,
   onStartGame,
 }: Props) {
+  // チーム数はプレイヤー数を超えられない (最小2)。プレイヤー削除で超過したら丸める。
+  const maxTeams = Math.min(4, Math.max(2, players.length));
+  useEffect(() => {
+    if (teamCount > maxTeams) onSetTeamCount(maxTeams);
+  }, [maxTeams, teamCount, onSetTeamCount]);
+
   return (
     <PhaseFrame backgroundColor={Colors.canvas}>
       <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.setupContent}>
@@ -82,14 +90,11 @@ export function SetupPhase({
         <MakimonoBox style={styles.makimono} contentStyle={styles.makimonoContent}>
           <View style={styles.settingsRow}>
             <ThemedText type="labelSm">チーム数</ThemedText>
-            <SegmentedControl
-              options={[
-                { label: '2', value: 2 },
-                { label: '3', value: 3 },
-                { label: '4', value: 4 },
-              ]}
+            <TeamSizeSelector
               value={teamCount}
               onChange={onSetTeamCount}
+              playersCount={players.length}
+              maxTeams={maxTeams}
             />
           </View>
 
