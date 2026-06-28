@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -110,13 +110,7 @@ function TeamCard({ num, selected, disabled, sizes, onPress }: CardProps) {
             <ThemedText type="label" themeColor={selected ? 'ink' : 'inkSoft'}>
               {num} チーム構成
             </ThemedText>
-            {selected && (
-              <View style={styles.activeBadge}>
-                <ThemedText type="caption" themeColor="canvas">
-                  ACTIVE
-                </ThemedText>
-              </View>
-            )}
+            {selected && <Text style={styles.check}>✓</Text>}
           </View>
 
           <View style={styles.dotsRow}>
@@ -205,11 +199,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  activeBadge: {
-    backgroundColor: Colors.ink,
-    borderRadius: Spacing.xl3,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 1,
+  check: {
+    color: Colors.ink,
+    fontSize: 16,
+    lineHeight: 18,
+    fontWeight: '900',
   },
   dotsRow: {
     flexDirection: 'row',
