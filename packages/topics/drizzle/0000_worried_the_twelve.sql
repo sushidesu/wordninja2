@@ -2,7 +2,7 @@ CREATE TABLE `evaluations` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`topic_id` text NOT NULL,
 	`evaluator` text NOT NULL,
-	`verdict` text NOT NULL,
+	`rating` integer NOT NULL,
 	`reason` text,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
 	FOREIGN KEY (`topic_id`) REFERENCES `topics`(`id`) ON UPDATE no action ON DELETE cascade

@@ -1,12 +1,12 @@
 import { desc, eq } from "drizzle-orm";
-import { FOLD, isAccept, sourceKind, type Verdict } from "./config";
+import { FOLD, normalizeRating, sourceKind } from "./config";
 import type { Db } from "./db";
 import { evaluations, topics, words } from "./schema";
 
 export type Evaluation = {
   id: number;
   evaluator: string;
-  verdict: string;
+  rating: number;
   reason: string | null;
   createdAt: string;
 };
@@ -21,11 +21,11 @@ export type Topic = {
   evaluations: Evaluation[];
 };
 
-// fold: 信頼度重み付きベイズ集約（Beta-Binomial）で採用確率を出す（ADR 0001）。
-// 採用イベント = {good, close} の二値のみ使用。LLMパネルは合計重み上限で按分。
-// 未評価は null。
+// fold: 信頼度重み付きベイズ平均（star-rating の Bayesian average）（ADR 0002）。
+// rating を [0,1] に正規化し、幻の票(κ·m0)で収縮、評価者重みで加重平均。
+// LLMパネルは合計重み上限で按分。未評価は null。
 export function foldScore(
-  evals: { evaluator: string; verdict: string }[],
+  evals: { evaluator: string; rating: number }[],
 ): number | null {
   if (evals.length === 0) return null;
   const items = evals.map((e) => {
@@ -33,7 +33,7 @@ export function foldScore(
     return {
       kind,
       w: FOLD.baseWeight[kind] ?? 0.2,
-      acc: isAccept(e.verdict) ? 1 : 0,
+      x: normalizeRating(e.rating),
     };
   });
   const llmTotal = items
@@ -41,11 +41,11 @@ export function foldScore(
     .reduce((s, i) => s + i.w, 0);
   const llmScale =
     llmTotal > FOLD.llmPanelCap ? FOLD.llmPanelCap / llmTotal : 1;
-  let num = FOLD.prior.a0;
-  let den = FOLD.prior.a0 + FOLD.prior.b0;
+  let num = FOLD.phantomVotes * FOLD.priorMean;
+  let den = FOLD.phantomVotes;
   for (const i of items) {
     const w = i.kind === "llm" ? i.w * llmScale : i.w;
-    num += w * i.acc;
+    num += w * i.x;
     den += w;
   }
   return num / den;
@@ -92,10 +92,10 @@ export async function addEvaluation(
   db: Db,
   topicId: string,
   evaluator: string,
-  verdict: Verdict,
+  rating: number,
   reason: string | null,
 ): Promise<void> {
-  await db.insert(evaluations).values({ topicId, evaluator, verdict, reason });
+  await db.insert(evaluations).values({ topicId, evaluator, rating, reason });
   await recomputeScore(db, topicId);
 }
 
@@ -146,7 +146,7 @@ function assemble(
       .map((e) => ({
         id: e.id,
         evaluator: e.evaluator,
-        verdict: e.verdict,
+        rating: e.rating,
         reason: e.reason,
         createdAt: e.createdAt,
       })),
@@ -158,6 +158,33 @@ export async function listTopics(db: Db): Promise<Topic[]> {
   const ws = await db.select().from(words);
   const evs = await db.select().from(evaluations);
   return ts.map((t) => assemble(t, ws, evs));
+}
+
+export type Summary = {
+  total: number;
+  unrated: number;
+  accepted: number;
+  rejected: number;
+  ratings: Record<number, number>; // human 評点(1..5)ごとの件数
+};
+
+// 一覧結果から集計（純関数）。評点分布は human 評価から取る。
+export function summarize(topics: Topic[]): Summary {
+  const ratings: Record<number, number> = {};
+  let unrated = 0;
+  let accepted = 0;
+  let rejected = 0;
+  for (const t of topics) {
+    if (t.score === null) unrated++;
+    else if (t.accepted) accepted++;
+    else rejected++;
+    for (const e of t.evaluations) {
+      if (e.evaluator === "human") {
+        ratings[e.rating] = (ratings[e.rating] ?? 0) + 1;
+      }
+    }
+  }
+  return { total: topics.length, unrated, accepted, rejected, ratings };
 }
 
 export async function getTopic(db: Db, id: string): Promise<Topic | undefined> {

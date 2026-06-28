@@ -31,14 +31,14 @@ export const words = sqliteTable("words", {
 });
 
 // 評価。人・LLM・将来ユーザーの判断記録。唯一の書き込み面（source of truth）。
-// verdict はカテゴリ（線形化しない）。score 列は持たない（ADR 0001）。
+// rating は5段階の品質評点（単極）。reason は任意の自由コメント（ADR 0002）。
 export const evaluations = sqliteTable("evaluations", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   topicId: text("topic_id")
     .notNull()
     .references(() => topics.id, { onDelete: "cascade" }),
   evaluator: text("evaluator").notNull(), // "human" | "llm:v4" | "user" ...
-  verdict: text("verdict").notNull(), // good/close/too_close/predictable/flat/too_far/nonsense
+  rating: integer("rating").notNull(), // 1..5
   reason: text("reason"),
   createdAt: text("created_at")
     .notNull()

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c10e9b3c-f02a-4df1-90fc-d7313663a57b",
+  "id": "207f7404-4dd0-4d36-80ee-324995972e3e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "evaluations": {
@@ -28,9 +28,9 @@
           "notNull": true,
           "autoincrement": false
         },
-        "verdict": {
-          "name": "verdict",
-          "type": "text",
+        "rating": {
+          "name": "rating",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false

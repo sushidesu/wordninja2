@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { api } from "./api";
-import { VERDICT_KEYS, type Verdict, WORDS_PER_TOPIC } from "./config";
+import { isValidRating, WORDS_PER_TOPIC } from "./config";
 import { createDb } from "./db";
 import * as repo from "./repo";
 import { ReviewPage, TopicDetailPage, TopicsListPage } from "./views";
@@ -23,8 +23,20 @@ app.route("/api", api);
 // ---- 人間用 Web UI（SSR + フォームPOST。/review は人間用クライアント）----
 
 app.get("/", async (c) => {
-  const topics = await repo.listTopics(createDb(c.env.DB));
-  return c.html(TopicsListPage({ topics })!);
+  const all = await repo.listTopics(createDb(c.env.DB));
+  const filter = c.req.query("filter") ?? "all";
+  const topics = all.filter((t) =>
+    filter === "unrated"
+      ? t.score === null
+      : filter === "accepted"
+        ? t.accepted
+        : filter === "rejected"
+          ? t.score !== null && !t.accepted
+          : true,
+  );
+  return c.html(
+    TopicsListPage({ topics, summary: repo.summarize(all), filter })!,
+  );
 });
 
 app.get("/review", (c) => c.html(ReviewPage({})!));
@@ -60,13 +72,13 @@ app.post("/topics/:id/delete", async (c) => {
 app.post("/topics/:id/eval", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.parseBody();
-  const verdict = field(body, "verdict");
-  if ((VERDICT_KEYS as string[]).includes(verdict)) {
+  const rating = Number(field(body, "rating"));
+  if (isValidRating(rating)) {
     await repo.addEvaluation(
       createDb(c.env.DB),
       id,
       field(body, "evaluator").trim() || "human",
-      verdict as Verdict,
+      rating,
       field(body, "reason").trim() || null,
     );
   }

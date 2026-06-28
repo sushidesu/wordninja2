@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { VERDICT_KEYS, type Verdict, WORDS_PER_TOPIC } from "./config";
+import { isValidRating, WORDS_PER_TOPIC } from "./config";
 import { createDb } from "./db";
 import * as repo from "./repo";
 
@@ -48,29 +48,26 @@ api.delete("/topics/:id", async (c) => {
   return c.json({ ok: true });
 });
 
-const validVerdict = (v: string): v is Verdict =>
-  (VERDICT_KEYS as string[]).includes(v);
-
 // 評価の投入（人・LLM共通）。1件 or 配列。score は自動再計算。
 api.post("/evaluations", async (c) => {
   type Item = {
     topicId: string;
     evaluator: string;
-    verdict: string;
+    rating: number;
     reason?: string;
   };
   const body = await c.req.json<Item | { evaluations: Item[] }>();
   const items = "evaluations" in body ? body.evaluations : [body];
   const db = createDb(c.env.DB);
   for (const it of items) {
-    if (!validVerdict(it.verdict)) {
-      return c.json({ error: `invalid verdict: ${it.verdict}` }, 400);
+    if (!isValidRating(it.rating)) {
+      return c.json({ error: `rating must be 1..5: ${it.rating}` }, 400);
     }
     await repo.addEvaluation(
       db,
       it.topicId,
       it.evaluator,
-      it.verdict,
+      it.rating,
       it.reason ?? null,
     );
   }

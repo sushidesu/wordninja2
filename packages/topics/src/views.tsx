@@ -1,15 +1,25 @@
 import type { Child, FC } from "hono/jsx";
-import { type Verdict, VERDICT_KEYS, WORDS_PER_TOPIC } from "./config";
-import type { Topic } from "./repo";
+import {
+  FOLD,
+  normalizeRating,
+  RATINGS,
+  ratingMeta,
+  REASON_PRESETS,
+  WORDS_PER_TOPIC,
+} from "./config";
+import type { Evaluation, Summary, Topic } from "./repo";
 
-const VERDICT_LABEL: Record<Verdict, { label: string; color: string }> = {
-  good: { label: "良い", color: "#16a34a" },
-  close: { label: "惜しい", color: "#d97706" },
-  too_close: { label: "近すぎ", color: "#ef4444" },
-  predictable: { label: "予測可能", color: "#db2777" },
-  flat: { label: "平凡", color: "#6b7280" },
-  too_far: { label: "遠すぎ", color: "#6366f1" },
-  nonsense: { label: "意味不明", color: "#475569" },
+// 評価者ごとの最新 rating（後勝ち）。
+const latestByEvaluator = (evals: Evaluation[]): Map<string, number> => {
+  const m = new Map<string, number>();
+  for (const e of evals) m.set(e.evaluator, e.rating);
+  return m;
+};
+
+// 採用判定（評価者個別の正規化評点 >= 閾値）が評価者間で割れているか。
+const hasDivergence = (m: Map<string, number>): boolean => {
+  const accs = [...m.values()].map((r) => normalizeRating(r) >= FOLD.threshold);
+  return accs.some((a) => a) && accs.some((a) => !a);
 };
 
 const STYLE = `
@@ -19,7 +29,7 @@ const STYLE = `
          background: #f6f7f9; color: #1a1a1a; }
   @media (prefers-color-scheme: dark) {
     body { background: #16181d; color: #e8e8e8; }
-    .card, .chip, input, textarea { background: #21242b !important; color: #e8e8e8; border-color: #3a3f4b !important; }
+    .card, .chip, input, textarea, select { background: #21242b !important; color: #e8e8e8; border-color: #3a3f4b !important; }
     a { color: #7eb6ff; }
   }
   .wrap { max-width: 920px; margin: 0 auto; padding: 24px 16px 64px; }
@@ -31,12 +41,11 @@ const STYLE = `
   .spacer { flex: 1; }
   .muted { color: #8a8f98; font-size: 13px; }
   .score { font-variant-numeric: tabular-nums; font-weight: 600; }
-  input, textarea, button, select { font: inherit; }
   input[type=text], textarea, select { border: 1px solid #cdd3db; border-radius: 7px; padding: 7px 9px; background: #fff; }
-  textarea { width: 100%; min-height: 70px; resize: vertical; }
+  textarea { width: 100%; min-height: 56px; resize: vertical; }
   button { border: 0; border-radius: 7px; padding: 7px 14px; cursor: pointer; background: #2563eb; color: #fff; font-weight: 600; }
   button.ghost { background: transparent; color: #ef4444; font-weight: 500; border: 1px solid #ef4444; padding: 4px 10px; }
-  button.sub { background: #4b5563; }
+  button.sub { background: transparent; color: #6b7280; border: 1px solid #cdd3db; font-weight: 500; padding: 4px 10px; }
   table { width: 100%; border-collapse: collapse; }
   td, th { padding: 8px 6px; border-bottom: 1px solid #e3e6ea; text-align: left; vertical-align: top; }
   th { font-size: 12px; color: #8a8f98; text-transform: uppercase; }
@@ -67,31 +76,78 @@ const ScoreCell: FC<{ t: Topic }> = ({ t }) =>
   ) : (
     <span class="row" style="gap:6px">
       <span class="score">{t.score.toFixed(2)}</span>
-      <span
-        class="acc"
-        style={`background:${t.accepted ? "#16a34a" : "#9ca3af"}`}
-      >
+      <span class="acc" style={`background:${t.accepted ? "#16a34a" : "#9ca3af"}`}>
         {t.accepted ? "採用" : "却下"}
       </span>
     </span>
   );
 
-const VerdictChip: FC<{ verdict: string }> = ({ verdict }) => {
-  const v = VERDICT_LABEL[verdict as Verdict];
+const RatingChip: FC<{ rating: number; prefix?: string }> = ({
+  rating,
+  prefix,
+}) => {
+  const m = ratingMeta(rating);
   return (
-    <span class="chip" style={`color:#fff;border:0;background:${v?.color ?? "#6b7280"}`}>
-      {v?.label ?? verdict}
+    <span class="chip" style={`color:#fff;border:0;background:${m.color}`}>
+      {prefix ? `${prefix}:` : ""}★{rating} {m.label}
     </span>
   );
 };
 
-export const TopicsListPage: FC<{ topics: Topic[] }> = ({ topics }) => (
+const FilterTab: FC<{ to: string; active: boolean; children?: Child }> = ({
+  to,
+  active,
+  children,
+}) => (
+  <a href={to} class="chip" style={active ? "background:#2563eb;color:#fff;border:0" : ""}>
+    {children}
+  </a>
+);
+
+const EvaluatorChips: FC<{ topic: Topic }> = ({ topic }) => {
+  const m = latestByEvaluator(topic.evaluations);
+  if (m.size === 0) return <span class="muted">—</span>;
+  return (
+    <span>
+      {[...m.entries()].map(([ev, rating]) => (
+        <RatingChip rating={rating} prefix={ev} />
+      ))}
+      {hasDivergence(m) && (
+        <span class="chip" style="background:#f59e0b;color:#fff;border:0">⚠ 要確認</span>
+      )}
+    </span>
+  );
+};
+
+export const TopicsListPage: FC<{
+  topics: Topic[];
+  summary: Summary;
+  filter: string;
+}> = ({ topics, summary, filter }) => (
   <Layout title="お題コックピット">
     <div class="row">
       <h1>ワードニンジャ お題コックピット</h1>
       <span class="spacer" />
       <a href="/review">⚡ 高速評価</a>
-      <span class="muted">{topics.length} 件</span>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <FilterTab to="/" active={filter === "all"}>全 {summary.total}</FilterTab>
+        <FilterTab to="/?filter=unrated" active={filter === "unrated"}>未評価 {summary.unrated}</FilterTab>
+        <FilterTab to="/?filter=accepted" active={filter === "accepted"}>採用 {summary.accepted}</FilterTab>
+        <FilterTab to="/?filter=rejected" active={filter === "rejected"}>却下 {summary.rejected}</FilterTab>
+        <span class="spacer" />
+        <span class="muted">採用閾値 {FOLD.threshold}</span>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <span class="muted">評点分布:</span>
+        {RATINGS.map((r) => (
+          <span class="muted">
+            ★{r.value} {summary.ratings[r.value] ?? 0}
+          </span>
+        ))}
+      </div>
     </div>
 
     <div class="card">
@@ -109,7 +165,7 @@ export const TopicsListPage: FC<{ topics: Topic[] }> = ({ topics }) => (
           <tr>
             <th>お題</th>
             <th style="width:120px">score</th>
-            <th style="width:64px">評価</th>
+            <th>評価</th>
             <th style="width:48px" />
           </tr>
         </thead>
@@ -124,15 +180,13 @@ export const TopicsListPage: FC<{ topics: Topic[] }> = ({ topics }) => (
                 </a>
               </td>
               <td><ScoreCell t={t} /></td>
-              <td>{t.evaluations.length}</td>
+              <td><EvaluatorChips topic={t} /></td>
               <td><a href={`/topics/${t.id}`}>詳細</a></td>
             </tr>
           ))}
           {topics.length === 0 && (
             <tr>
-              <td colspan={4} class="muted">
-                まだお題がありません。上のフォームか LLM(API)で追加してください。
-              </td>
+              <td colspan={4} class="muted">該当するお題がありません。</td>
             </tr>
           )}
         </tbody>
@@ -163,16 +217,31 @@ export const TopicDetailPage: FC<{ topic: Topic }> = ({ topic }) => (
 
     <div class="card">
       <h2>評価</h2>
+      {topic.score !== null && (
+        <p class="muted">
+          {[...latestByEvaluator(topic.evaluations).entries()]
+            .map(([ev, r]) => `${ev}=★${r}`)
+            .join(", ")}{" "}
+          → score {topic.score.toFixed(2)}（採用閾値 {FOLD.threshold}）
+        </p>
+      )}
       {topic.evaluations.length === 0 && <p class="muted">まだ評価がありません。</p>}
-      {topic.evaluations.map((e) => (
-        <div class="row" style="border-bottom:1px solid #e3e6ea; padding:6px 0">
-          <span class="muted" style="width:90px">{e.evaluator}</span>
-          <VerdictChip verdict={e.verdict} />
-          <span class="muted">{e.reason}</span>
-          <span class="spacer" />
-          <form method="post" action={`/evaluations/${e.id}/delete`}>
-            <button class="ghost" type="submit">削除</button>
-          </form>
+      {[...new Set(topic.evaluations.map((e) => e.evaluator))].map((evaluator) => (
+        <div style="margin-bottom:8px">
+          <div class="muted" style="font-weight:600">{evaluator}</div>
+          {topic.evaluations
+            .filter((e) => e.evaluator === evaluator)
+            .map((e) => (
+              <div class="row" style="border-bottom:1px solid #e3e6ea; padding:6px 0">
+                <RatingChip rating={e.rating} />
+                <span class="muted">{e.reason}</span>
+                <span class="muted">{e.createdAt}</span>
+                <span class="spacer" />
+                <form method="post" action={`/evaluations/${e.id}/delete`}>
+                  <button class="ghost" type="submit">削除</button>
+                </form>
+              </div>
+            ))}
         </div>
       ))}
 
@@ -183,18 +252,32 @@ export const TopicDetailPage: FC<{ topic: Topic }> = ({ topic }) => (
             <input type="text" name="evaluator" value="human" required />
           </div>
           <div>
-            <label>判定</label>
-            <select name="verdict">
-              {VERDICT_KEYS.map((k) => (
-                <option value={k}>{VERDICT_LABEL[k].label}</option>
+            <label>評点</label>
+            <select name="rating">
+              {RATINGS.map((r) => (
+                <option value={r.value} selected={r.value === 3}>
+                  ★{r.value} {r.label}
+                </option>
               ))}
             </select>
           </div>
         </div>
-        <label>メモ（任意）</label>
-        <textarea name="reason" style="min-height:48px" />
-        <div style="margin-top:10px"><button class="sub" type="submit">評価を追加</button></div>
+        <label>理由（任意）</label>
+        <div class="row" style="margin-bottom:6px">
+          {REASON_PRESETS.map((p) => (
+            <button type="button" class="sub" onclick={`addReason('${p}')`}>
+              {p}
+            </button>
+          ))}
+        </div>
+        <textarea name="reason" id="reason-input" />
+        <div style="margin-top:10px"><button type="submit">評価を追加</button></div>
       </form>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `function addReason(t){const el=document.getElementById('reason-input');el.value=el.value?el.value+' / '+t:t;}`,
+        }}
+      />
     </div>
 
     <div class="card">
@@ -209,11 +292,8 @@ export const TopicDetailPage: FC<{ topic: Topic }> = ({ topic }) => (
   </Layout>
 );
 
-// 高速評価: 人評価が無いお題を1件ずつ、キーで判定（=人評価を追加）。
+// 高速評価: 人評価が無いお題を1件ずつ、1〜5キーで評点（=人評価を追加）。
 const REVIEW_JS = `
-const KEY = ${JSON.stringify(
-  Object.fromEntries(VERDICT_KEYS.map((v, i) => [String(i + 1), v])),
-)};
 const esc = s => s.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
 let queue = [], idx = 0;
 async function load() {
@@ -233,17 +313,18 @@ function render() {
     t.words.map(w => '<span class="w">' + esc(w.text) + '</span>').join('<span class="vs">×</span>') +
     '</div>';
 }
-function rate(verdict) {
+function rate(rating) {
   if (idx >= queue.length) return;
   const t = queue[idx];
   idx++; render();
   fetch('/api/evaluations', {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ topicId: t.id, evaluator: 'human', verdict })
+    body: JSON.stringify({ topicId: t.id, evaluator: 'human', rating })
   });
 }
 document.addEventListener('keydown', e => {
-  if (KEY[e.key]) { e.preventDefault(); rate(KEY[e.key]); }
+  const n = Number(e.key);
+  if (n >= 1 && n <= 5) { e.preventDefault(); rate(n); }
   else if (e.key === 'u' && idx > 0) { idx--; render(); }
 });
 load();
@@ -273,16 +354,16 @@ export const ReviewPage: FC = () => (
     </div>
     <div id="card" />
     <div class="rv-btns">
-      {VERDICT_KEYS.map((k, i) => (
-        <button style={`background:${VERDICT_LABEL[k].color}`} onclick={`rate('${k}')`}>
-          {i + 1} · {VERDICT_LABEL[k].label}
+      {RATINGS.map((r) => (
+        <button style={`background:${r.color}`} onclick={`rate(${r.value})`}>
+          {r.value} · {r.label}
         </button>
       ))}
     </div>
     <p class="keyhint">
-      {VERDICT_KEYS.map((k, i) => `${i + 1}=${VERDICT_LABEL[k].label}`).join(" / ")} / u = 戻る
+      {RATINGS.map((r) => `${r.value}=${r.label}`).join(" / ")} / u = 戻る
       <br />
-      押すと人評価を追加して次へ（score は自動再計算、良い/惜しいが採用圏）
+      押すと人評価を追加して次へ（score は自動再計算、閾値 {FOLD.threshold} 以上が採用）
     </p>
     <script dangerouslySetInnerHTML={{ __html: REVIEW_JS }} />
   </Layout>
