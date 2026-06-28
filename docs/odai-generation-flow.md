@@ -2,6 +2,8 @@
 
 種ベースの簡素フロー（ADR 0004。旧 QD 機構は退役）。
 
+これは「1バッチを流す**内側のパイプライン（道具）**」。これを人のレビューから育てる**外側の校正ループ（本体）**は `odai-calibration-loop.md` を参照。
+
 ```mermaid
 flowchart TB
   POOL[("シード語プール<br/>data/seed-words.txt<br/>(辞書由来の具体名詞 約290。<br/>SudachiDict普通名詞∩高頻度→LLMで具体性フィルタ)")]
