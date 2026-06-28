@@ -5,7 +5,7 @@ import { createDb } from "./db";
 import * as repo from "./repo";
 import { ReviewPage, TopicDetailPage, TopicsListPage } from "./views";
 
-type Bindings = { DB: D1Database };
+type Bindings = { DB: D1Database; AI: Ai };
 
 const app = new Hono<{ Bindings: Bindings }>();
 

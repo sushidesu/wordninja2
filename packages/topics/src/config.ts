@@ -46,6 +46,12 @@ export const sourceKind = (evaluator: string): "human" | "llm" | "user" =>
       ? "llm"
       : "user";
 
+// 埋め込み（距離軸 M2）。Workers AI bge-m3, 1024次元。
+export const EMBED_MODEL = "@cf/baai/bge-m3";
+export const EMBED_DIM = 1024;
+// explore 用のコサイン距離スイートバンド（似てるが同義でない。人評価で後で校正）。
+export const DISTANCE_BAND = { low: 0.15, high: 0.45 };
+
 // fold（信頼度重み付きベイズ平均 = star-rating の Bayesian average）。ADR 0002。
 export const FOLD = {
   // ソース種別ごとの1評価あたり基礎重み

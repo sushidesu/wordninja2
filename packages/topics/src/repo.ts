@@ -1,7 +1,8 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { FOLD, normalizeRating, sourceKind } from "./config";
+import { cosineDistance } from "./distance";
 import type { Db } from "./db";
-import { evaluations, topics, words } from "./schema";
+import { evaluations, topics, wordEmbeddings, words } from "./schema";
 
 export type Evaluation = {
   id: number;
@@ -197,6 +198,78 @@ export function summarize(topics: Topic[]): Summary {
     }
   }
   return { total: topics.length, unrated, accepted, rejected, ratings, relations };
+}
+
+// ---- 埋め込み（距離軸 M2）----
+
+// ベクトルは JSON text で保存（Workers ランタイムに Node Buffer が無く、
+// Drizzle の blob マッパが動かないため）。
+const toStored = (vec: number[]): string => JSON.stringify(vec);
+const toVector = (stored: string): Float32Array =>
+  Float32Array.from(JSON.parse(stored) as number[]);
+
+// まだ指定モデルの埋め込みが無い語。
+export async function wordsMissingEmbedding(
+  db: Db,
+  model: string,
+): Promise<{ id: number; text: string }[]> {
+  const rows = await db
+    .select({ id: words.id, text: words.text })
+    .from(words)
+    .leftJoin(
+      wordEmbeddings,
+      and(
+        eq(wordEmbeddings.wordId, words.id),
+        eq(wordEmbeddings.model, model),
+      ),
+    )
+    .where(isNull(wordEmbeddings.wordId));
+  return rows;
+}
+
+export async function saveEmbedding(
+  db: Db,
+  wordId: number,
+  model: string,
+  dim: number,
+  vec: number[],
+): Promise<void> {
+  await db
+    .insert(wordEmbeddings)
+    .values({ wordId, model, dim, vector: toStored(vec) })
+    .onConflictDoUpdate({
+      target: [wordEmbeddings.wordId, wordEmbeddings.model],
+      set: { dim, vector: toStored(vec) },
+    });
+}
+
+// 各 topic のペア距離（2語の語ベクトルのコサイン距離）。両語に埋め込みが
+// 揃っている topic のみ返す。
+export async function pairDistances(
+  db: Db,
+  model: string,
+): Promise<Map<string, number>> {
+  const ws = await db.select().from(words);
+  const embs = await db
+    .select()
+    .from(wordEmbeddings)
+    .where(eq(wordEmbeddings.model, model));
+  const vec = new Map<number, Float32Array>(
+    embs.map((e) => [e.wordId, toVector(e.vector)]),
+  );
+  const byTopic = new Map<string, Float32Array[]>();
+  for (const w of ws) {
+    const v = vec.get(w.id);
+    if (!v) continue;
+    const arr = byTopic.get(w.topicId) ?? [];
+    arr.push(v);
+    byTopic.set(w.topicId, arr);
+  }
+  const out = new Map<string, number>();
+  for (const [tid, vs] of byTopic) {
+    if (vs.length === 2) out.set(tid, cosineDistance(vs[0], vs[1]));
+  }
+  return out;
 }
 
 export async function getTopic(db: Db, id: string): Promise<Topic | undefined> {

@@ -1,9 +1,10 @@
 import { Hono } from "hono";
-import { isValidRating, WORDS_PER_TOPIC } from "./config";
+import { embedTexts } from "./ai";
+import { EMBED_DIM, EMBED_MODEL, isValidRating, WORDS_PER_TOPIC } from "./config";
 import { createDb } from "./db";
 import * as repo from "./repo";
 
-type Bindings = { DB: D1Database };
+type Bindings = { DB: D1Database; AI: Ai };
 
 // LLM・スクリプト・/review が共有する JSON 操作面。
 export const api = new Hono<{ Bindings: Bindings }>();
@@ -79,4 +80,29 @@ api.post("/evaluations", async (c) => {
 api.delete("/evaluations/:id", async (c) => {
   await repo.deleteEvaluation(createDb(c.env.DB), Number(c.req.param("id")));
   return c.json({ ok: true });
+});
+
+// ---- 埋め込み / 距離（M2）----
+
+// 未埋め込みの語を Workers AI でベクトル化して保存（増分バックフィル）。
+api.post("/embed", async (c) => {
+  const db = createDb(c.env.DB);
+  const missing = await repo.wordsMissingEmbedding(db, EMBED_MODEL);
+  let done = 0;
+  const CHUNK = 50;
+  for (let i = 0; i < missing.length; i += CHUNK) {
+    const batch = missing.slice(i, i + CHUNK);
+    const vecs = await embedTexts(c.env.AI, batch.map((w) => w.text));
+    for (let j = 0; j < batch.length; j++) {
+      await repo.saveEmbedding(db, batch[j].id, EMBED_MODEL, EMBED_DIM, vecs[j]);
+      done++;
+    }
+  }
+  return c.json({ ok: true, embedded: done, model: EMBED_MODEL });
+});
+
+// 各 topic のペア距離（コサイン距離）一覧。距離と人評価の相関確認用。
+api.get("/distances", async (c) => {
+  const dists = await repo.pairDistances(createDb(c.env.DB), EMBED_MODEL);
+  return c.json(Object.fromEntries(dists));
 });

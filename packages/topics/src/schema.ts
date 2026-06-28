@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import {
-  blob,
   integer,
   primaryKey,
   real,
@@ -55,7 +54,7 @@ export const wordEmbeddings = sqliteTable(
       .references(() => words.id, { onDelete: "cascade" }),
     model: text("model").notNull(),
     dim: integer("dim").notNull(),
-    vector: blob("vector").notNull(),
+    vector: text("vector").notNull(), // JSON: number[]（Workers に Buffer が無いため blob は使わない）
     createdAt: text("created_at")
       .notNull()
       .default(sql`(datetime('now'))`),

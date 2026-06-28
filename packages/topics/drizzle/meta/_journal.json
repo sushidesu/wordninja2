@@ -15,6 +15,13 @@
       "when": 1782625361537,
       "tag": "0001_amusing_hitman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782628476324,
+      "tag": "0002_known_robin_chapel",
+      "breakpoints": true
     }
   ]
 }
