@@ -38,6 +38,10 @@ const palette = {
   splitAmber: '#FBBF24',
   splitRose: '#FB7185',
   splitIndigo: '#818CF8',
+  // 巻物のつまみ色。既定は黄。amber 軸とは被るので、そのチームだけオレンジ寄りにする。
+  makimonoKnob: '#F4C22C',
+  amberKnob: '#F6D66A',
+  indigoKnob: '#F6C24A',
 } as const;
 
 // ---- 役割ベースの公開トークン。アプリコードはこれだけを触る。 ----
@@ -106,6 +110,17 @@ export const TeamSplitColors = [
   palette.splitAmber,
   palette.splitRose,
   palette.splitIndigo,
+] as const;
+
+/**
+ * 各チーム巻物のつまみ色（TeamSplitColors と index 対応）。基本は黄のまま。
+ * amber(index 1) だけ軸(黄)と被るのでオレンジ寄りにして区別する。
+ */
+export const TeamSplitKnobColors = [
+  palette.makimonoKnob,
+  palette.amberKnob,
+  palette.makimonoKnob,
+  palette.indigoKnob,
 ] as const;
 
 export type ThemeColor = Exclude<keyof typeof Colors, never>;
