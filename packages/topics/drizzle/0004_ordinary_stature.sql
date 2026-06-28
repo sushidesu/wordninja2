@@ -1,1 +1,0 @@
-ALTER TABLE `topic_set_candidates` ADD `vibe` integer DEFAULT false NOT NULL;

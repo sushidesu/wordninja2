@@ -1,107 +1,83 @@
 import { Hono } from "hono";
+import { VERDICT_KEYS, type Verdict, WORDS_PER_TOPIC } from "./config";
 import { createDb } from "./db";
 import * as repo from "./repo";
 
 type Bindings = { DB: D1Database };
 
-// sub-agent（生成・膨張・自動評価）と UI が共有する JSON 操作面。
+// LLM・スクリプト・/review が共有する JSON 操作面。
 export const api = new Hono<{ Bindings: Bindings }>();
 
-api.get("/sets", async (c) => c.json(await repo.listSets(createDb(c.env.DB))));
+api.get("/topics", async (c) => c.json(await repo.listTopics(createDb(c.env.DB))));
 
-api.get("/sets/:id", async (c) => {
-  const set = await repo.getSet(createDb(c.env.DB), c.req.param("id"));
-  return set ? c.json(set) : c.json({ error: "not found" }, 404);
+api.get("/topics/:id", async (c) => {
+  const t = await repo.getTopic(createDb(c.env.DB), c.req.param("id"));
+  return t ? c.json(t) : c.json({ error: "not found" }, 404);
 });
 
-api.post("/sets", async (c) => {
-  const { words } = await c.req.json<{ words?: string[] }>();
-  const wordList = words ?? [];
-  if (wordList.length !== repo.WORDS_PER_TOPIC) {
-    return c.json({ error: `words must be exactly ${repo.WORDS_PER_TOPIC}` }, 400);
-  }
-  const id = await repo.createSet(createDb(c.env.DB), wordList);
-  return c.json({ ok: true, id }, 201);
-});
-
-api.put("/sets/:id/words", async (c) => {
-  const { words } = await c.req.json<{ words: string[] }>();
-  const wordList = words ?? [];
-  if (wordList.length !== repo.WORDS_PER_TOPIC) {
-    return c.json({ error: `words must be exactly ${repo.WORDS_PER_TOPIC}` }, 400);
-  }
-  await repo.replaceWords(createDb(c.env.DB), c.req.param("id"), wordList);
-  return c.json({ ok: true });
-});
-
-api.delete("/sets/:id", async (c) => {
-  await repo.deleteSet(createDb(c.env.DB), c.req.param("id"));
-  return c.json({ ok: true });
-});
-
-api.put("/sets/:id/evaluations", async (c) => {
-  const { source, score, note } = await c.req.json<{
-    source: string;
-    score: number;
-    note?: string | null;
-  }>();
-  await repo.upsertEvaluation(
-    createDb(c.env.DB),
-    c.req.param("id"),
-    source,
-    score,
-    note ?? null,
-  );
-  return c.json({ ok: true });
-});
-
-// 候補: sub-agent が生成結果を投入する口。1件 or 配列をまとめて受ける。
-api.post("/candidates", async (c) => {
-  type Item = {
-    words: string[];
-    source?: string;
-    note?: string;
-    score?: number;
-  };
-  const body = await c.req.json<Item | { candidates: Item[] }>();
-  const items = "candidates" in body ? body.candidates : [body];
+// 生成: 1件 or 配列をまとめて投入（未評価で入る）。
+api.post("/topics", async (c) => {
+  type Item = { words: string[]; source?: string };
+  const body = await c.req.json<Item | { topics: Item[] }>();
+  const items = "topics" in body ? body.topics : [body];
   const db = createDb(c.env.DB);
-  for (const item of items) {
-    await repo.createCandidate(
+  const ids: string[] = [];
+  for (const it of items) {
+    if ((it.words ?? []).length !== WORDS_PER_TOPIC) {
+      return c.json(
+        { error: `words must be exactly ${WORDS_PER_TOPIC}` },
+        400,
+      );
+    }
+    ids.push(await repo.createTopic(db, it.words, it.source ?? null));
+  }
+  return c.json({ ok: true, ids }, 201);
+});
+
+api.put("/topics/:id/words", async (c) => {
+  const { words } = await c.req.json<{ words: string[] }>();
+  if ((words ?? []).length !== WORDS_PER_TOPIC) {
+    return c.json({ error: `words must be exactly ${WORDS_PER_TOPIC}` }, 400);
+  }
+  await repo.replaceWords(createDb(c.env.DB), c.req.param("id"), words);
+  return c.json({ ok: true });
+});
+
+api.delete("/topics/:id", async (c) => {
+  await repo.deleteTopic(createDb(c.env.DB), c.req.param("id"));
+  return c.json({ ok: true });
+});
+
+const validVerdict = (v: string): v is Verdict =>
+  (VERDICT_KEYS as string[]).includes(v);
+
+// 評価の投入（人・LLM共通）。1件 or 配列。score は自動再計算。
+api.post("/evaluations", async (c) => {
+  type Item = {
+    topicId: string;
+    evaluator: string;
+    verdict: string;
+    reason?: string;
+  };
+  const body = await c.req.json<Item | { evaluations: Item[] }>();
+  const items = "evaluations" in body ? body.evaluations : [body];
+  const db = createDb(c.env.DB);
+  for (const it of items) {
+    if (!validVerdict(it.verdict)) {
+      return c.json({ error: `invalid verdict: ${it.verdict}` }, 400);
+    }
+    await repo.addEvaluation(
       db,
-      item.words,
-      item.source ?? "claude",
-      item.note ?? null,
-      item.score ?? null,
+      it.topicId,
+      it.evaluator,
+      it.verdict,
+      it.reason ?? null,
     );
   }
-  return c.json({ ok: true, created: items.length }, 201);
+  return c.json({ ok: true, count: items.length }, 201);
 });
 
-api.get("/candidates", async (c) =>
-  c.json(await repo.listCandidates(createDb(c.env.DB))),
-);
-
-// 判定 / フィードバックの設定（人 or sub-agent）
-api.put("/candidates/:id/feedback", async (c) => {
-  const { verdict, vibe, feedback } = await c.req.json<{
-    verdict?: repo.Verdict | null;
-    vibe?: boolean;
-    feedback?: string | null;
-  }>();
-  const db = createDb(c.env.DB);
-  const id = Number(c.req.param("id"));
-  if (verdict !== undefined) await repo.setCandidateVerdict(db, id, verdict);
-  if (vibe !== undefined) await repo.setCandidateVibe(db, id, vibe);
-  if (feedback !== undefined) await repo.setCandidateFeedback(db, id, feedback);
-  return c.json({ ok: true });
-});
-
-api.delete("/sets/:id/evaluations/:source", async (c) => {
-  await repo.deleteEvaluation(
-    createDb(c.env.DB),
-    c.req.param("id"),
-    c.req.param("source"),
-  );
+api.delete("/evaluations/:id", async (c) => {
+  await repo.deleteEvaluation(createDb(c.env.DB), Number(c.req.param("id")));
   return c.json({ ok: true });
 });

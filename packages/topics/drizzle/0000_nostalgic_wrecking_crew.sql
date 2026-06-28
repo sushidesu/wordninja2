@@ -1,15 +1,17 @@
-CREATE TABLE `topic_set_evaluations` (
-	`topic_set_id` text NOT NULL,
-	`source` text NOT NULL,
-	`score` real NOT NULL,
-	`note` text,
+CREATE TABLE `evaluations` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`topic_id` text NOT NULL,
+	`evaluator` text NOT NULL,
+	`verdict` text NOT NULL,
+	`reason` text,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL,
-	PRIMARY KEY(`topic_set_id`, `source`),
-	FOREIGN KEY (`topic_set_id`) REFERENCES `topic_sets`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`topic_id`) REFERENCES `topics`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
-CREATE TABLE `topic_sets` (
+CREATE TABLE `topics` (
 	`id` text PRIMARY KEY NOT NULL,
+	`source` text,
+	`score` real,
 	`created_at` text DEFAULT (datetime('now')) NOT NULL
 );
 --> statement-breakpoint
@@ -25,7 +27,7 @@ CREATE TABLE `word_embeddings` (
 --> statement-breakpoint
 CREATE TABLE `words` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`topic_set_id` text NOT NULL,
+	`topic_id` text NOT NULL,
 	`text` text NOT NULL,
-	FOREIGN KEY (`topic_set_id`) REFERENCES `topic_sets`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`topic_id`) REFERENCES `topics`(`id`) ON UPDATE no action ON DELETE cascade
 );

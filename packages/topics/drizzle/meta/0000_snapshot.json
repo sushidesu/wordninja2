@@ -1,35 +1,42 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "df809375-639d-4f60-9f56-17831c6941e1",
+  "id": "c10e9b3c-f02a-4df1-90fc-d7313663a57b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
-    "topic_set_evaluations": {
-      "name": "topic_set_evaluations",
+    "evaluations": {
+      "name": "evaluations",
       "columns": {
-        "topic_set_id": {
-          "name": "topic_set_id",
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "topic_id": {
+          "name": "topic_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "source": {
-          "name": "source",
+        "evaluator": {
+          "name": "evaluator",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "score": {
-          "name": "score",
-          "type": "real",
+        "verdict": {
+          "name": "verdict",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "note": {
-          "name": "note",
+        "reason": {
+          "name": "reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -46,12 +53,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "topic_set_evaluations_topic_set_id_topic_sets_id_fk": {
-          "name": "topic_set_evaluations_topic_set_id_topic_sets_id_fk",
-          "tableFrom": "topic_set_evaluations",
-          "tableTo": "topic_sets",
+        "evaluations_topic_id_topics_id_fk": {
+          "name": "evaluations_topic_id_topics_id_fk",
+          "tableFrom": "evaluations",
+          "tableTo": "topics",
           "columnsFrom": [
-            "topic_set_id"
+            "topic_id"
           ],
           "columnsTo": [
             "id"
@@ -60,26 +67,32 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {
-        "topic_set_evaluations_topic_set_id_source_pk": {
-          "columns": [
-            "topic_set_id",
-            "source"
-          ],
-          "name": "topic_set_evaluations_topic_set_id_source_pk"
-        }
-      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "topic_sets": {
-      "name": "topic_sets",
+    "topics": {
+      "name": "topics",
       "columns": {
         "id": {
           "name": "id",
           "type": "text",
           "primaryKey": true,
           "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "score": {
+          "name": "score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "created_at": {
@@ -175,8 +188,8 @@
           "notNull": true,
           "autoincrement": true
         },
-        "topic_set_id": {
-          "name": "topic_set_id",
+        "topic_id": {
+          "name": "topic_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -192,12 +205,12 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "words_topic_set_id_topic_sets_id_fk": {
-          "name": "words_topic_set_id_topic_sets_id_fk",
+        "words_topic_id_topics_id_fk": {
+          "name": "words_topic_id_topics_id_fk",
           "tableFrom": "words",
-          "tableTo": "topic_sets",
+          "tableTo": "topics",
           "columnsFrom": [
-            "topic_set_id"
+            "topic_id"
           ],
           "columnsTo": [
             "id"

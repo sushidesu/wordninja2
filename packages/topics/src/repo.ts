@@ -1,293 +1,172 @@
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
+import { FOLD, isAccept, sourceKind, type Verdict } from "./config";
 import type { Db } from "./db";
-import {
-  topicSetCandidates,
-  topicSetEvaluations,
-  topicSets,
-  words,
-} from "./schema";
+import { evaluations, topics, words } from "./schema";
 
-// ゲームのルール: お題の最小単位はペア（ちょうど2語）。
-// 3語・4語は制御が難しいため、2語を土台にし、必要なら 2→3 / 2→4 を合成する。
-// 登録済み topic_sets はこの不変条件を満たす（候補=ドラフトは自由）。
-export const WORDS_PER_TOPIC = 2;
-
-// お題セットの全体像。UI / API / sub-agent が共有する読み出し単位。
 export type Evaluation = {
-  source: string;
-  score: number;
-  note: string | null;
+  id: number;
+  evaluator: string;
+  verdict: string;
+  reason: string | null;
   createdAt: string;
 };
 
-export type TopicSetDetail = {
+export type Topic = {
   id: string;
+  source: string | null;
+  score: number | null;
+  accepted: boolean; // score >= threshold（派生）
   createdAt: string;
   words: { id: number; text: string }[];
   evaluations: Evaluation[];
 };
 
-// 人間評価のスコア。未評価は -1 として末尾に送る。
-export const humanScore = (d: TopicSetDetail): number =>
-  d.evaluations.find((e) => e.source === "human")?.score ?? -1;
-
-const toEvaluation = (e: typeof topicSetEvaluations.$inferSelect): Evaluation => ({
-  source: e.source,
-  score: e.score,
-  note: e.note,
-  createdAt: e.createdAt,
-});
-
-export async function listSets(db: Db): Promise<TopicSetDetail[]> {
-  const sets = await db.select().from(topicSets);
-  const allWords = await db.select().from(words);
-  const allEvals = await db.select().from(topicSetEvaluations);
-
-  const details: TopicSetDetail[] = sets.map((s) => ({
-    id: s.id,
-    createdAt: s.createdAt,
-    words: allWords
-      .filter((w) => w.topicSetId === s.id)
-      .map((w) => ({ id: w.id, text: w.text })),
-    evaluations: allEvals
-      .filter((e) => e.topicSetId === s.id)
-      .map(toEvaluation),
-  }));
-
-  // 良いお題を上に（膨らませる判断用）。未評価は末尾。
-  return details.sort((a, b) => humanScore(b) - humanScore(a));
+// fold: 信頼度重み付きベイズ集約（Beta-Binomial）で採用確率を出す（ADR 0001）。
+// 採用イベント = {good, close} の二値のみ使用。LLMパネルは合計重み上限で按分。
+// 未評価は null。
+export function foldScore(
+  evals: { evaluator: string; verdict: string }[],
+): number | null {
+  if (evals.length === 0) return null;
+  const items = evals.map((e) => {
+    const kind = sourceKind(e.evaluator);
+    return {
+      kind,
+      w: FOLD.baseWeight[kind] ?? 0.2,
+      acc: isAccept(e.verdict) ? 1 : 0,
+    };
+  });
+  const llmTotal = items
+    .filter((i) => i.kind === "llm")
+    .reduce((s, i) => s + i.w, 0);
+  const llmScale =
+    llmTotal > FOLD.llmPanelCap ? FOLD.llmPanelCap / llmTotal : 1;
+  let num = FOLD.prior.a0;
+  let den = FOLD.prior.a0 + FOLD.prior.b0;
+  for (const i of items) {
+    const w = i.kind === "llm" ? i.w * llmScale : i.w;
+    num += w * i.acc;
+    den += w;
+  }
+  return num / den;
 }
 
-export async function getSet(
-  db: Db,
-  id: string,
-): Promise<TopicSetDetail | undefined> {
-  const set = await db
-    .select()
-    .from(topicSets)
-    .where(eq(topicSets.id, id))
-    .get();
-  if (!set) return undefined;
-
-  const ws = await db.select().from(words).where(eq(words.topicSetId, id));
-  const es = await db
-    .select()
-    .from(topicSetEvaluations)
-    .where(eq(topicSetEvaluations.topicSetId, id));
-
-  return {
-    id: set.id,
-    createdAt: set.createdAt,
-    words: ws.map((w) => ({ id: w.id, text: w.text })),
-    evaluations: es.map(toEvaluation),
-  };
-}
-
-// ID は意味を持たない。衝突しないランダム値を採番する。
 const genId = (): string => crypto.randomUUID().replace(/-/g, "").slice(0, 8);
 
 async function exists(db: Db, id: string): Promise<boolean> {
   const row = await db
-    .select({ id: topicSets.id })
-    .from(topicSets)
-    .where(eq(topicSets.id, id))
+    .select({ id: topics.id })
+    .from(topics)
+    .where(eq(topics.id, id))
     .get();
   return row !== undefined;
 }
 
-// ランダムIDで作成し、採番したIDを返す。
-export async function createSet(
-  db: Db,
-  wordTexts: string[],
-): Promise<string> {
-  let id = genId();
-  while (await exists(db, id)) id = genId();
-  await db.insert(topicSets).values({ id });
-  if (wordTexts.length > 0) {
-    await db
-      .insert(words)
-      .values(wordTexts.map((text) => ({ topicSetId: id, text })));
-  }
-  return id;
-}
-
-// 語の差し替え。古い語を消すと word_embeddings も cascade で消える
-// （語が変われば旧ベクトルは無効、という整合がDBで保たれる）。
-export async function replaceWords(
-  db: Db,
-  id: string,
-  wordTexts: string[],
-): Promise<void> {
-  await db.delete(words).where(eq(words.topicSetId, id));
-  if (wordTexts.length > 0) {
-    await db
-      .insert(words)
-      .values(wordTexts.map((text) => ({ topicSetId: id, text })));
-  }
-}
-
-export async function deleteSet(db: Db, id: string): Promise<void> {
-  await db.delete(topicSets).where(eq(topicSets.id, id));
-}
-
-export async function upsertEvaluation(
-  db: Db,
-  topicSetId: string,
-  source: string,
-  score: number,
-  note: string | null,
-): Promise<void> {
-  await db
-    .insert(topicSetEvaluations)
-    .values({ topicSetId, source, score, note })
-    .onConflictDoUpdate({
-      target: [topicSetEvaluations.topicSetId, topicSetEvaluations.source],
-      set: { score, note },
-    });
-}
-
-// ---- 候補（生成→編集→登録/却下）----
-
-// 良い/惜しい = 登録対象（惜しい以上）。残り3つは没の理由を区別して持つ
-// （ルーブリック校正の信号: どの観点で落ちたか）。
-export type Verdict =
-  | "good"
-  | "close"
-  | "too_close" // 近すぎ（同義・同一サブカテゴリ）= C2
-  | "predictable" // 予測可能（片方がメジャー過ぎ）= C1
-  | "flat" // 平凡（同ジャンルなだけ）= C1
-  | "too_far" // 遠すぎ（連想はギリ辿れるが遠い）= C3
-  | "nonsense"; // 意味不明（共通点が成立しない/ナンセンス）= C3
-
-export const VERDICT_KEYS: Verdict[] = [
-  "good",
-  "close",
-  "too_close",
-  "predictable",
-  "flat",
-  "too_far",
-  "nonsense",
-];
-
-// 惜しい以上 = 登録対象
-export const isRegisterable = (v: Verdict | null): boolean =>
-  v === "good" || v === "close";
-
-export type Candidate = {
-  id: number;
-  words: string[];
-  source: string | null;
-  note: string | null;
-  score: number | null;
-  verdict: Verdict | null;
-  vibe: boolean;
-  feedback: string | null;
-  createdAt: string;
-};
-
-export async function listCandidates(db: Db): Promise<Candidate[]> {
-  const rows = await db
+// 評価の増減後に topics.score を再計算（materialized fold の維持）。
+async function recomputeScore(db: Db, topicId: string): Promise<void> {
+  const evs = await db
     .select()
-    .from(topicSetCandidates)
-    .orderBy(desc(topicSetCandidates.score), desc(topicSetCandidates.id));
-  return rows.map((r) => ({
-    id: r.id,
-    words: JSON.parse(r.words) as string[],
-    source: r.source,
-    note: r.note,
-    score: r.score,
-    verdict: r.verdict as Verdict | null,
-    vibe: r.vibe,
-    feedback: r.feedback,
-    createdAt: r.createdAt,
-  }));
+    .from(evaluations)
+    .where(eq(evaluations.topicId, topicId));
+  const score = foldScore(evs);
+  await db.update(topics).set({ score }).where(eq(topics.id, topicId));
 }
 
-export async function setCandidateVerdict(
-  db: Db,
-  id: number,
-  verdict: Verdict | null,
-): Promise<void> {
-  await db
-    .update(topicSetCandidates)
-    .set({ verdict })
-    .where(eq(topicSetCandidates.id, id));
-}
-
-export async function setCandidateFeedback(
-  db: Db,
-  id: number,
-  feedback: string | null,
-): Promise<void> {
-  await db
-    .update(topicSetCandidates)
-    .set({ feedback })
-    .where(eq(topicSetCandidates.id, id));
-}
-
-export async function setCandidateVibe(
-  db: Db,
-  id: number,
-  vibe: boolean,
-): Promise<void> {
-  await db
-    .update(topicSetCandidates)
-    .set({ vibe })
-    .where(eq(topicSetCandidates.id, id));
-}
-
-export async function createCandidate(
+export async function createTopic(
   db: Db,
   wordTexts: string[],
   source: string | null,
-  note: string | null,
-  score: number | null,
-): Promise<void> {
-  await db
-    .insert(topicSetCandidates)
-    .values({ words: JSON.stringify(wordTexts), source, note, score });
-}
-
-export async function updateCandidate(
-  db: Db,
-  id: number,
-  wordTexts: string[],
-  note: string | null,
-): Promise<void> {
-  await db
-    .update(topicSetCandidates)
-    .set({ words: JSON.stringify(wordTexts), note })
-    .where(eq(topicSetCandidates.id, id));
-}
-
-export async function deleteCandidate(db: Db, id: number): Promise<void> {
-  await db.delete(topicSetCandidates).where(eq(topicSetCandidates.id, id));
-}
-
-// 候補を本物のお題へ昇格。成功したら候補を消し、採番したIDを返す。
-// 4語でなければ登録せず null を返す（候補は残す）。
-export async function registerCandidate(
-  db: Db,
-  candidateId: number,
-  wordTexts: string[],
-): Promise<string | null> {
-  if (wordTexts.length !== WORDS_PER_TOPIC) return null;
-  const id = await createSet(db, wordTexts);
-  await deleteCandidate(db, candidateId);
+): Promise<string> {
+  let id = genId();
+  while (await exists(db, id)) id = genId();
+  await db.insert(topics).values({ id, source, score: null });
+  if (wordTexts.length > 0) {
+    await db
+      .insert(words)
+      .values(wordTexts.map((text) => ({ topicId: id, text })));
+  }
   return id;
 }
 
-export async function deleteEvaluation(
+export async function addEvaluation(
   db: Db,
-  topicSetId: string,
-  source: string,
+  topicId: string,
+  evaluator: string,
+  verdict: Verdict,
+  reason: string | null,
 ): Promise<void> {
-  await db
-    .delete(topicSetEvaluations)
-    .where(
-      and(
-        eq(topicSetEvaluations.topicSetId, topicSetId),
-        eq(topicSetEvaluations.source, source),
-      ),
-    );
+  await db.insert(evaluations).values({ topicId, evaluator, verdict, reason });
+  await recomputeScore(db, topicId);
+}
+
+export async function deleteEvaluation(db: Db, id: number): Promise<void> {
+  const row = await db
+    .select({ topicId: evaluations.topicId })
+    .from(evaluations)
+    .where(eq(evaluations.id, id))
+    .get();
+  if (!row) return;
+  await db.delete(evaluations).where(eq(evaluations.id, id));
+  await recomputeScore(db, row.topicId);
+}
+
+export async function replaceWords(
+  db: Db,
+  topicId: string,
+  wordTexts: string[],
+): Promise<void> {
+  await db.delete(words).where(eq(words.topicId, topicId));
+  if (wordTexts.length > 0) {
+    await db
+      .insert(words)
+      .values(wordTexts.map((text) => ({ topicId, text })));
+  }
+}
+
+export async function deleteTopic(db: Db, id: string): Promise<void> {
+  await db.delete(topics).where(eq(topics.id, id));
+}
+
+function assemble(
+  t: typeof topics.$inferSelect,
+  ws: (typeof words.$inferSelect)[],
+  evs: (typeof evaluations.$inferSelect)[],
+): Topic {
+  return {
+    id: t.id,
+    source: t.source,
+    score: t.score,
+    accepted: t.score !== null && t.score >= FOLD.threshold,
+    createdAt: t.createdAt,
+    words: ws
+      .filter((w) => w.topicId === t.id)
+      .map((w) => ({ id: w.id, text: w.text })),
+    evaluations: evs
+      .filter((e) => e.topicId === t.id)
+      .map((e) => ({
+        id: e.id,
+        evaluator: e.evaluator,
+        verdict: e.verdict,
+        reason: e.reason,
+        createdAt: e.createdAt,
+      })),
+  };
+}
+
+export async function listTopics(db: Db): Promise<Topic[]> {
+  const ts = await db.select().from(topics).orderBy(desc(topics.score));
+  const ws = await db.select().from(words);
+  const evs = await db.select().from(evaluations);
+  return ts.map((t) => assemble(t, ws, evs));
+}
+
+export async function getTopic(db: Db, id: string): Promise<Topic | undefined> {
+  const t = await db.select().from(topics).where(eq(topics.id, id)).get();
+  if (!t) return undefined;
+  const ws = await db.select().from(words).where(eq(words.topicId, id));
+  const evs = await db
+    .select()
+    .from(evaluations)
+    .where(eq(evaluations.topicId, id));
+  return assemble(t, ws, evs);
 }
