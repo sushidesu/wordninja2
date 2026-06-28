@@ -68,7 +68,9 @@ export function SetupPhase({
                   placeholderTextColor={Colors.inkMute}
                   style={[Type.body, styles.playerInput]}
                 />
-                <Pressable onPress={() => onRemovePlayer(player.id)} style={styles.removeButton}>
+                <Pressable
+                  onPress={() => onRemovePlayer(player.id)}
+                  style={({ pressed }) => [styles.removeButton, pressed && styles.pressedDim]}>
                   <ThemedText type="labelLg" style={styles.removeButtonText}>
                     ×
                   </ThemedText>
@@ -78,7 +80,9 @@ export function SetupPhase({
           ))}
 
           <View style={styles.makimonoDivider} />
-          <Pressable onPress={onAddPlayer} style={styles.addPlayerButton}>
+          <Pressable
+            onPress={onAddPlayer}
+            style={({ pressed }) => [styles.addPlayerButton, pressed && styles.pressedDim]}>
             <ThemedText type="label" themeColor="inkSoft">
               + プレイヤーを追加
             </ThemedText>
@@ -200,5 +204,8 @@ const styles = StyleSheet.create({
   },
   bottomAction: {
     paddingTop: Spacing.md,
+  },
+  pressedDim: {
+    opacity: 0.6,
   },
 });

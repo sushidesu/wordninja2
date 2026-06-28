@@ -3,15 +3,15 @@
 // 関連する state/関数 (isVoting, questions, startVoting, toggleVote, submitVotes 等) も
 // game-context.tsx に温存してある。削除しないこと。
 import React from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { AdaptiveScrollView } from '@/components/adaptive-scroll-view';
-import { HardShadow } from '@/components/hard-shadow';
 import { HighlightHeading } from '@/components/highlight-heading';
 import { MakimonoBox } from '@/components/makimono-box';
 import { PhaseFrame } from '@/components/phase-frame';
 import { ThemedText } from '@/components/themed-text';
 import { BreakLine } from '@/components/ui/break-line';
+import { PressBox } from '@/components/ui/press-box';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { SecondaryButton } from '@/components/ui/secondary-button';
 import { StampLabel } from '@/components/ui/stamp-label';
@@ -54,11 +54,9 @@ export function PlayingPhase({
         <ThemedText type="labelLg" style={{ color: isVoting ? Colors.canvas : Colors.ink }}>
           ワードニンジャ
         </ThemedText>
-        <HardShadow>
-          <Pressable style={styles.endGameButton} onPress={onEndGame}>
-            <ThemedText type="labelSm">ゲーム終了</ThemedText>
-          </Pressable>
-        </HardShadow>
+        <PressBox onPress={onEndGame} style={styles.endGameButton}>
+          <ThemedText type="labelSm">ゲーム終了</ThemedText>
+        </PressBox>
       </View>
       <BreakLine />
 
@@ -158,11 +156,11 @@ export function PlayingPhase({
                     {index > 0 && <View style={styles.makimonoDivider} />}
                     <View style={styles.voteRow}>
                       <ThemedText type="label">{player.name}</ThemedText>
-                      <Pressable
+                      <PressBox
                         onPress={() => onToggleVote(player.id)}
                         style={[styles.voteButton, isYes ? styles.voteYes : styles.voteNo]}>
                         <ThemedText type="label">{isYes ? 'はい' : 'いいえ'}</ThemedText>
-                      </Pressable>
+                      </PressBox>
                     </View>
                   </View>
                 );

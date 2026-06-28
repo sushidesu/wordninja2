@@ -130,7 +130,9 @@ export function AssignmentPhase({
                         <ThemedText type="hero" style={styles.revealedTopic}>
                           {player?.topic}
                         </ThemedText>
-                        <Pressable onPress={handleHide}>
+                        <Pressable
+                          onPress={handleHide}
+                          style={({ pressed }) => pressed && styles.pressedDim}>
                           <ThemedText type="labelSm" themeColor="inkSoft">
                             隠す
                           </ThemedText>
@@ -250,6 +252,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: Spacing.sm,
+  },
+  pressedDim: {
+    opacity: 0.6,
   },
   progressDot: {
     width: 10,

@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { PressBox } from '@/components/ui/press-box';
 import { Colors, Spacing } from '@/constants/theme';
 
 type Option<T> = { label: string; value: T };
@@ -26,14 +27,16 @@ export function SegmentedControl<T extends string | number | boolean>({
       {options.map((option) => {
         const active = option.value === value;
         return (
-          <Pressable
+          <PressBox
             key={String(option.value)}
             onPress={() => onChange(option.value)}
+            elevated={active}
+            containerStyle={styles.cell}
             style={[styles.button, active && styles.buttonActive]}>
             <ThemedText type="label" themeColor={active ? 'canvas' : 'ink'}>
               {option.label}
             </ThemedText>
-          </Pressable>
+          </PressBox>
         );
       })}
     </View>
@@ -46,8 +49,10 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.sm,
   },
-  button: {
+  cell: {
     flex: 1,
+  },
+  button: {
     paddingVertical: Spacing.md,
     backgroundColor: Colors.canvas,
     borderWidth: 2,
