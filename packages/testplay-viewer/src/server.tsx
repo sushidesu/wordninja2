@@ -88,9 +88,9 @@ function gameFileName(g: Game) {
 
 // ── 表示部品(Hono JSX, サーバサイドレンダリング)──────────────
 const STYLE = `
-  :root { color-scheme: light dark; --bd: #8883; --mut: #8889; }
+  :root { color-scheme: dark; --bd: #8883; --mut: #8889; --bg: #0f1115; }
   * { box-sizing: border-box; }
-  body { margin: 0; font: 14px/1.6 -apple-system, "Hiragino Sans", system-ui, sans-serif; }
+  body { margin: 0; font: 14px/1.6 -apple-system, "Hiragino Sans", system-ui, sans-serif; background: var(--bg); color: #e8e8ea; }
   .wrap { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
   .side { border-right: 1px solid var(--bd); padding: 12px; overflow-y: auto; max-height: 100vh; position: sticky; top: 0; }
   .side h1 { font-size: 13px; letter-spacing: .04em; opacity: .6; margin: 4px 0 12px; }
@@ -114,7 +114,8 @@ const STYLE = `
   .ans { font-weight: 700; padding: 1px 8px; border-radius: 6px; margin-left: 6px; }
   .ans.はい { background: #16a34a22; color: #16a34a; }
   .ans.いいえ { background: #ef444422; color: #ef4444; }
-  .ans.わからない { background: #f59e0b22; color: #b45309; }
+  .ans.わからない { background: #f59e0b22; color: #f59e0b; }
+  .ans.部分的にそう { background: #14b8a622; color: #2dd4bf; }
   .guess { border-width: 2px; }
   .guess.ok { border-color: #16a34a; }
   .guess.ng { border-color: #ef4444; }
@@ -131,6 +132,10 @@ const STYLE = `
   .turn { max-width: 80%; }
   .turn.p1 { align-self: flex-start; background: #6366f10d; border-left: 3px solid #6366f1; }
   .turn.p2 { align-self: flex-end; background: #ec489912; border-right: 3px solid #ec4899; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 14px; }
+  .toolbar button { font: inherit; font-size: 12px; padding: 6px 12px; border: 1px solid var(--bd); border-radius: 8px; background: #8881; color: inherit; cursor: pointer; }
+  .toolbar button:hover { background: #8883; }
+  #capture { background: var(--bg); padding: 20px 24px; border-radius: 12px; }
 `
 
 function Layout(props: { activeRun?: string; activeGame?: string; children: unknown }) {
@@ -286,6 +291,31 @@ function GameReplay(props: { game: Game }) {
 const app = new Hono()
 const page = (node: unknown) => '<!DOCTYPE html>' + String(node)
 
+// 画像保存ライブラリ(modern-screenshot UMD・グローバル modernScreenshot)を vendor 配信
+const VENDOR_MS = resolve(import.meta.dirname, '..', 'node_modules', 'modern-screenshot', 'dist', 'index.js')
+let vendorCache: string | null = null
+app.get('/vendor/modern-screenshot.js', (c) => {
+  try {
+    vendorCache = vendorCache ?? readFileSync(VENDOR_MS, 'utf8')
+  } catch {
+    return c.notFound()
+  }
+  return c.body(vendorCache, 200, { 'content-type': 'application/javascript; charset=utf-8' })
+})
+
+// クライアントJS: 思考(details)の一括開閉 + #capture を丸ごと PNG 化して保存
+const CLIENT_JS = (name: string) => `
+window.__IMG__ = ${JSON.stringify(name)};
+function toggleAll(open){ document.querySelectorAll('#capture details').forEach(function(d){ d.open = open }); }
+async function saveImage(){
+  var node = document.getElementById('capture');
+  try {
+    var url = await modernScreenshot.domToPng(node, { scale: 2, backgroundColor: '#0f1115' });
+    var a = document.createElement('a'); a.download = (window.__IMG__ || 'testplay') + '.png'; a.href = url; a.click();
+  } catch (e) { alert('画像化に失敗: ' + (e && e.message ? e.message : e)); }
+}
+`
+
 app.get('/', (c) => c.html(page(<Layout><div class="empty">左から run を選んでください。</div></Layout>)))
 
 app.get('/run/:label', (c) => {
@@ -315,8 +345,17 @@ app.get('/run/:label/game/:file', (c) => {
         <div class="crumb">
           {label} / {game.pair[0]}×{game.pair[1]} #{game.replicaIndex + 1}
         </div>
-        <h2>{game.pair[0]} × {game.pair[1]}</h2>
-        <GameReplay game={game} />
+        <div id="toolbar" class="toolbar">
+          <button onclick="toggleAll(true)">思考をすべて開く</button>
+          <button onclick="toggleAll(false)">すべて閉じる</button>
+          <button onclick="saveImage()">画像で保存</button>
+        </div>
+        <div id="capture">
+          <h2>{game.pair[0]} × {game.pair[1]}</h2>
+          <GameReplay game={game} />
+        </div>
+        <script src="/vendor/modern-screenshot.js"></script>
+        <script dangerouslySetInnerHTML={{ __html: CLIENT_JS(`${label}-${game.pair[0]}x${game.pair[1]}-${game.replicaIndex + 1}`) }} />
       </Layout>,
     ),
   )
