@@ -55,3 +55,6 @@ pnpm-debug.log*
 
 # Claude Code
 .claude/
+
+# テストプレイのログ出力(生成物)
+logs/
