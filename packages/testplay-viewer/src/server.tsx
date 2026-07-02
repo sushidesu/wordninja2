@@ -86,6 +86,92 @@ function gameFileName(g: Game) {
   return `game-${g.specIndex}-${g.replicaIndex}.json`
 }
 
+// ── グルーピング(run を跨いだ横断)────────────────────────────
+// お題は順序なしで同一視(先手入替をまとめる)。語別の勝敗は winnerWord に残るので失われない。
+const topicKey = (pair: [string, string]) => [pair[0], pair[1]].slice().sort().join('|')
+const topicLabel = (pair: [string, string]) => [pair[0], pair[1]].slice().sort().join(' × ')
+
+type Entry = { run: string; file: string; game: Game }
+function allGames(): Entry[] {
+  const out: Entry[] = []
+  for (const r of listRuns()) for (const g of listGames(r.label)) out.push({ run: r.label, file: gameFileName(g), game: g })
+  return out
+}
+
+type Agg = { n: number; solved: number; draws: number; avgTurns: number | null; byWord: Record<string, number>; byPosition: Record<string, number> }
+function aggregate(games: Game[]): Agg {
+  const won = games.filter((g) => g.solved)
+  const byWord: Record<string, number> = {}
+  const byPosition: Record<string, number> = { '先手P1': 0, '後手P2': 0 }
+  for (const g of won) {
+    if (g.winnerWord) byWord[g.winnerWord] = (byWord[g.winnerWord] || 0) + 1
+    if (g.winner === 1) byPosition['先手P1']++
+    else if (g.winner === 2) byPosition['後手P2']++
+  }
+  const avgTurns = won.length ? Math.round((won.reduce((a, g) => a + g.totalTurns, 0) / won.length) * 10) / 10 : null
+  return { n: games.length, solved: won.length, draws: games.length - won.length, avgTurns, byWord, byPosition }
+}
+
+type Topic = { key: string; label: string; entries: Entry[] }
+function groupTopics(): Topic[] {
+  const map = new Map<string, Topic>()
+  for (const e of allGames()) {
+    const k = topicKey(e.game.pair)
+    if (!map.has(k)) map.set(k, { key: k, label: topicLabel(e.game.pair), entries: [] })
+    map.get(k)!.entries.push(e)
+  }
+  return [...map.values()].sort((a, b) => b.entries.length - a.entries.length || a.label.localeCompare(b.label))
+}
+
+type G = 'run' | 'topic' | 'model'
+
+// ── モデル比較(単一モデルで集計。対戦相手は gate せず"パラメータ"扱い)──
+// 1ゲーム=プレイヤー枠2つ=2観測。sonnet同士なら sonnet の観測が2件、opus vs sonnet なら各1件。
+const norm = (m?: string) => m || '(default)'
+type Obs = { model: string; opponent: string; topicLabel: string; topicK: string; word: string; result: 'win' | 'loss' | 'draw'; turns: number }
+function observations(): Obs[] {
+  const out: Obs[] = []
+  for (const e of allGames()) {
+    const g = e.game
+    for (const p of [1, 2] as const) {
+      const model = norm(g.thinkerModels?.[String(p)])
+      const opponent = norm(g.thinkerModels?.[String(p === 1 ? 2 : 1)])
+      const result: Obs['result'] = !g.solved ? 'draw' : g.winner === p ? 'win' : 'loss'
+      // 担当単語は正準の pair から導出(一部の古いログは words にプロファイル文が混入しているため)
+      out.push({ model, opponent, topicLabel: topicLabel(g.pair), topicK: topicKey(g.pair), word: g.pair[p - 1], result, turns: g.totalTurns })
+    }
+  }
+  return out
+}
+function groupModels(): { name: string; obs: Obs[] }[] {
+  const map = new Map<string, Obs[]>()
+  for (const o of observations()) {
+    if (!map.has(o.model)) map.set(o.model, [])
+    map.get(o.model)!.push(o)
+  }
+  return [...map.entries()].map(([name, obs]) => ({ name, obs })).sort((a, b) => b.obs.length - a.obs.length)
+}
+function modelAgg(obs: Obs[]) {
+  const wins = obs.filter((o) => o.result === 'win').length
+  const losses = obs.filter((o) => o.result === 'loss').length
+  const draws = obs.filter((o) => o.result === 'draw').length
+  const wonTurns = obs.filter((o) => o.result === 'win').map((o) => o.turns)
+  const avgTurns = wonTurns.length ? Math.round((wonTurns.reduce((a, b) => a + b, 0) / wonTurns.length) * 10) / 10 : null
+  return { n: obs.length, wins, losses, draws, winRate: wins + losses ? wins / (wins + losses) : null, avgTurns }
+}
+// 潰さず保持するセル = お題 × 担当単語 × 相手
+type MCell = { topicLabel: string; word: string; opponent: string; win: number; loss: number; draw: number }
+function modelCells(obs: Obs[]): MCell[] {
+  const map = new Map<string, MCell>()
+  for (const o of obs) {
+    const k = o.topicK + '::' + o.word + '::' + o.opponent
+    if (!map.has(k)) map.set(k, { topicLabel: o.topicLabel, word: o.word, opponent: o.opponent, win: 0, loss: 0, draw: 0 })
+    map.get(k)![o.result]++
+  }
+  return [...map.values()].sort((a, b) => a.topicLabel.localeCompare(b.topicLabel) || a.word.localeCompare(b.word) || a.opponent.localeCompare(b.opponent))
+}
+const pct = (x: number | null) => (x == null ? '–' : Math.round(x * 100) + '%')
+
 // ── 表示部品(Hono JSX, サーバサイドレンダリング)──────────────
 const STYLE = `
   :root { color-scheme: dark; --bd: #8883; --mut: #8889; --bg: #0f1115; }
@@ -136,10 +222,102 @@ const STYLE = `
   .toolbar button { font: inherit; font-size: 12px; padding: 6px 12px; border: 1px solid var(--bd); border-radius: 8px; background: #8881; color: inherit; cursor: pointer; }
   .toolbar button:hover { background: #8883; }
   #capture { background: var(--bg); padding: 20px 24px; border-radius: 12px; }
+  .gtoggle { display: flex; gap: 4px; margin-bottom: 12px; }
+  .gtoggle a { flex: 1; text-align: center; font-size: 12px; padding: 5px; border: 1px solid var(--bd); border-radius: 8px; text-decoration: none; color: inherit; opacity: .65; }
+  .gtoggle a.on { background: #6cf3; opacity: 1; font-weight: 600; }
+  table.cmp { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  table.cmp th, table.cmp td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--bd); }
+  table.cmp th { opacity: .55; font-weight: 600; font-size: 11px; }
+  table.cmp td.num, table.cmp th.num { text-align: right; font-variant-numeric: tabular-nums; }
 `
 
-function Layout(props: { activeRun?: string; activeGame?: string; children: unknown }) {
+function RunNav(props: { activeRun?: string; activeGame?: string }) {
   const runs = listRuns()
+  if (!runs.length) return <div class="meta">logs/ に run がありません</div>
+  return (
+    <>
+      {runs.map((r) => {
+        const active = r.label === props.activeRun
+        return (
+          <div>
+            <a href={`/run/${encodeURIComponent(r.label)}`} class={active ? 'active' : ''}>
+              {r.label}
+              <div class="meta">
+                {r.summary ? `${r.summary.games}ゲーム / 解決${r.summary.solved} / 引分${r.summary.draws}` : '(summary なし)'}
+              </div>
+            </a>
+            {active ? (
+              <div class="games">
+                {listGames(r.label).map((gm) => {
+                  const f = gameFileName(gm)
+                  return (
+                    <a href={`/run/${encodeURIComponent(r.label)}/game/${f}`} class={f === props.activeGame ? 'active' : ''}>
+                      {gm.pair[0]}×{gm.pair[1]} #{gm.replicaIndex + 1} {gm.solved ? `→${gm.winnerWord}(${gm.totalTurns})` : '引分'}
+                    </a>
+                  )
+                })}
+              </div>
+            ) : null}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+function TopicNav(props: { activeTopicKey?: string; activeRun?: string; activeGame?: string }) {
+  const topics = groupTopics()
+  if (!topics.length) return <div class="meta">お題がありません</div>
+  return (
+    <>
+      {topics.map((t) => {
+        const active = t.key === props.activeTopicKey
+        const agg = aggregate(t.entries.map((e) => e.game))
+        return (
+          <div>
+            <a href={`/topic/${encodeURIComponent(t.key)}?g=topic`} class={active ? 'active' : ''}>
+              {t.label}
+              <div class="meta">{agg.n}ゲーム / 解決{agg.solved}</div>
+            </a>
+            {active ? (
+              <div class="games">
+                {t.entries.map((e) => (
+                  <a
+                    href={`/run/${encodeURIComponent(e.run)}/game/${e.file}?g=topic`}
+                    class={e.run === props.activeRun && e.file === props.activeGame ? 'active' : ''}
+                  >
+                    {e.run} {e.game.solved ? `→${e.game.winnerWord}(${e.game.totalTurns})` : '引分'}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+function ModelNav(props: { activeName?: string }) {
+  const ms = groupModels()
+  if (!ms.length) return <div class="meta">モデル情報のあるゲームがありません</div>
+  return (
+    <>
+      {ms.map((m) => {
+        const a = modelAgg(m.obs)
+        return (
+          <a href={`/model/${encodeURIComponent(m.name)}?g=model`} class={m.name === props.activeName ? 'active' : ''}>
+            {m.name}
+            <div class="meta">{a.n}出場 / 勝率 {pct(a.winRate)}</div>
+          </a>
+        )
+      })}
+    </>
+  )
+}
+
+function Layout(props: { group: G; activeRun?: string; activeTopicKey?: string; activeModel?: string; activeGame?: string; children: unknown }) {
+  const g = props.group
   return (
     <html lang="ja">
       <head>
@@ -151,43 +329,20 @@ function Layout(props: { activeRun?: string; activeGame?: string; children: unkn
       <body>
         <div class="wrap">
           <nav class="side">
-            <h1>TESTPLAY RUNS</h1>
+            <h1>TESTPLAY</h1>
+            <div class="gtoggle">
+              <a href="/?g=run" class={g === 'run' ? 'on' : ''}>run別</a>
+              <a href="/?g=topic" class={g === 'topic' ? 'on' : ''}>お題別</a>
+              <a href="/?g=model" class={g === 'model' ? 'on' : ''}>モデル比較</a>
+            </div>
             <div class="runs">
-              {runs.length === 0 ? <div class="meta">logs/ に run がありません</div> : null}
-              {runs.map((r) => {
-                const active = r.label === props.activeRun
-                return (
-                  <div>
-                    <a href={`/run/${encodeURIComponent(r.label)}`} class={active ? 'active' : ''}>
-                      {r.label}
-                      {r.summary ? (
-                        <div class="meta">
-                          {r.summary.games}ゲーム / 解決{r.summary.solved} / 引分{r.summary.draws}
-                        </div>
-                      ) : (
-                        <div class="meta">(summary なし)</div>
-                      )}
-                    </a>
-                    {active ? (
-                      <div class="games">
-                        {listGames(r.label).map((g) => {
-                          const f = gameFileName(g)
-                          return (
-                            <a
-                              href={`/run/${encodeURIComponent(r.label)}/game/${f}`}
-                              class={f === props.activeGame ? 'active' : ''}
-                            >
-                              {g.pair[0]}×{g.pair[1]}
-                              {' '}#{g.replicaIndex + 1}{' '}
-                              {g.solved ? `→${g.winnerWord}(${g.totalTurns})` : '引分'}
-                            </a>
-                          )
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
-                )
-              })}
+              {g === 'run' ? (
+                <RunNav activeRun={props.activeRun} activeGame={props.activeGame} />
+              ) : g === 'topic' ? (
+                <TopicNav activeTopicKey={props.activeTopicKey} activeRun={props.activeRun} activeGame={props.activeGame} />
+              ) : (
+                <ModelNav activeName={props.activeModel} />
+              )}
             </div>
           </nav>
           <main class="main">{props.children}</main>
@@ -213,23 +368,26 @@ function Bar(props: { parts: { label: string; n: number }[]; total: number }) {
   )
 }
 
-function RunSummary(props: { label: string; summary: Summary | null }) {
-  const s = props.summary
-  if (!s) return <div class="empty">summary.json がありません</div>
-  const posParts = Object.entries(s.byPosition).map(([label, n]) => ({ label, n }))
-  const wordParts = Object.entries(s.byWord).map(([label, n]) => ({ label, n }))
+function SummaryView(props: { agg: Agg; showPosition?: boolean }) {
+  const a = props.agg
+  const wordParts = Object.entries(a.byWord).map(([label, n]) => ({ label, n }))
+  const posParts = Object.entries(a.byPosition).map(([label, n]) => ({ label, n }))
   return (
     <div>
       <div class="stat">
-        <div><b>{s.games}</b><span>ゲーム</span></div>
-        <div><b>{s.solved}</b><span>解決</span></div>
-        <div><b>{s.draws}</b><span>引き分け</span></div>
-        <div><b>{s.avgTurns ?? '–'}</b><span>平均ターン(解決)</span></div>
+        <div><b>{a.n}</b><span>ゲーム</span></div>
+        <div><b>{a.solved}</b><span>解決</span></div>
+        <div><b>{a.draws}</b><span>引き分け</span></div>
+        <div><b>{a.avgTurns ?? '–'}</b><span>解決時の平均ターン</span></div>
       </div>
-      <div>先手 / 後手</div>
-      <Bar parts={posParts} total={s.solved} />
+      {props.showPosition ? (
+        <>
+          <div>先手 / 後手</div>
+          <Bar parts={posParts} total={a.solved} />
+        </>
+      ) : null}
       <div>語別の勝利</div>
-      <Bar parts={wordParts} total={s.solved} />
+      <Bar parts={wordParts} total={a.solved} />
     </div>
   )
 }
@@ -239,12 +397,12 @@ function GameReplay(props: { game: Game }) {
   return (
     <div>
       <div class="legend">
-        <span class="p1c">◀ P1 = {g.words['1']}</span>
+        <span class="p1c">◀ P1 = {g.words['1']}{g.thinkerModels ? ` [${g.thinkerModels['1']}]` : ''}</span>
         <span class="mid">
           {g.solved ? `勝者 P${g.winner}(${g.winnerWord})・${g.totalTurns}手` : `引き分け・${g.totalTurns}手`}
           {' '}/ oracle {g.answererModel ?? '?'}
         </span>
-        <span class="p2c">P2 = {g.words['2']} ▶</span>
+        <span class="p2c">P2 = {g.words['2']}{g.thinkerModels ? ` [${g.thinkerModels['2']}]` : ''} ▶</span>
       </div>
       <div class="replay">
         {g.transcript.map((m) => {
@@ -316,18 +474,99 @@ async function saveImage(){
 }
 `
 
-app.get('/', (c) => c.html(page(<Layout><div class="empty">左から run を選んでください。</div></Layout>)))
+function parseG(c: { req: { query: (k: string) => string | undefined } }): G {
+  const q = c.req.query('g')
+  return q === 'topic' ? 'topic' : q === 'model' ? 'model' : 'run'
+}
+
+app.get('/', (c) => {
+  const g = parseG(c)
+  const what = g === 'topic' ? 'お題' : g === 'model' ? 'モデル比較' : 'run'
+  return c.html(page(<Layout group={g}><div class="empty">左から {what} を選んでください。</div></Layout>))
+})
 
 app.get('/run/:label', (c) => {
   const label = c.req.param('label')
   if (!safe(label) || !existsSync(join(LOGS_DIR, label))) return c.notFound()
-  const summary = readJson<{ summary: Summary }>(join(LOGS_DIR, label, 'summary.json'))?.summary ?? null
+  const agg = aggregate(listGames(label))
   return c.html(
     page(
-      <Layout activeRun={label}>
-        <div class="crumb">{label}</div>
-        <h2>サマリ</h2>
-        <RunSummary label={label} summary={summary} />
+      <Layout group="run" activeRun={label}>
+        <div class="crumb">run / {label}</div>
+        <h2>{label}</h2>
+        <SummaryView agg={agg} showPosition={true} />
+      </Layout>,
+    ),
+  )
+})
+
+app.get('/topic/:key', (c) => {
+  const key = c.req.param('key')
+  const topic = groupTopics().find((t) => t.key === key)
+  if (!topic) return c.notFound()
+  const agg = aggregate(topic.entries.map((e) => e.game))
+  return c.html(
+    page(
+      <Layout group="topic" activeTopicKey={key}>
+        <div class="crumb">お題 / {topic.label}</div>
+        <h2>{topic.label}</h2>
+        <SummaryView agg={agg} showPosition={false} />
+        <h3 style="margin:20px 0 8px;font-size:14px;opacity:.8">全プレイ({agg.n})— run 横断</h3>
+        <div>
+          {topic.entries.map((e) => (
+            <a
+              style="display:block;padding:7px 12px;border:1px solid var(--bd);border-radius:8px;margin:5px 0;text-decoration:none;color:inherit"
+              href={`/run/${encodeURIComponent(e.run)}/game/${e.file}?g=topic`}
+            >
+              {e.run} — {e.game.solved ? `勝者 ${e.game.winnerWord}(${e.game.totalTurns}手)` : `引き分け(${e.game.totalTurns}手)`}
+            </a>
+          ))}
+        </div>
+      </Layout>,
+    ),
+  )
+})
+
+app.get('/model/:name', (c) => {
+  const name = c.req.param('name')
+  const m = groupModels().find((x) => x.name === name)
+  if (!m) return c.notFound()
+  const a = modelAgg(m.obs)
+  const cells = modelCells(m.obs)
+  return c.html(
+    page(
+      <Layout group="model" activeModel={name}>
+        <div class="crumb">モデル</div>
+        <h2>{name}</h2>
+        <div class="stat">
+          <div><b>{pct(a.winRate)}</b><span>勝率</span></div>
+          <div><b>{a.wins}-{a.losses}</b><span>勝-負 / 引分 {a.draws}</span></div>
+          <div><b>{a.avgTurns ?? '–'}</b><span>勝った時の平均手数</span></div>
+          <div><b>{a.n}</b><span>出場</span></div>
+        </div>
+        <div>お題 × 担当単語 × 相手 ごとの成績</div>
+        <table class="cmp">
+          <thead>
+            <tr>
+              <th>お題</th><th>担当単語</th><th>相手</th>
+              <th class="num">勝</th><th class="num">負</th><th class="num">分</th><th class="num">勝率</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cells.map((c2) => (
+              <tr>
+                <td>{c2.topicLabel}</td>
+                <td>{c2.word}</td>
+                <td>{c2.opponent}</td>
+                <td class="num">{c2.win}</td>
+                <td class="num">{c2.loss}</td>
+                <td class="num">{c2.draw}</td>
+                <td class="num">{c2.win + c2.loss ? Math.round((c2.win / (c2.win + c2.loss)) * 100) + '%' : '–'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div class="meta" style="margin-top:10px">勝率は相手によって変わります。別のモデルと公平に比べるときは、同じ「お題・担当単語・相手」の行どうしを見比べてください。</div>
       </Layout>,
     ),
   )
@@ -339,11 +578,17 @@ app.get('/run/:label/game/:file', (c) => {
   if (!safe(label) || !safe(file)) return c.notFound()
   const game = readJson<Game>(join(LOGS_DIR, label, file))
   if (!game) return c.notFound()
+  const g = parseG(c)
   return c.html(
     page(
-      <Layout activeRun={label} activeGame={file}>
+      <Layout
+        group={g}
+        activeRun={label}
+        activeGame={file}
+        activeTopicKey={g === 'topic' ? topicKey(game.pair) : undefined}
+      >
         <div class="crumb">
-          {label} / {game.pair[0]}×{game.pair[1]} #{game.replicaIndex + 1}
+          {g === 'topic' ? `お題 / ${topicLabel(game.pair)}` : `run / ${label}`} / #{game.replicaIndex + 1}
         </div>
         <div id="toolbar" class="toolbar">
           <button onclick="toggleAll(true)">思考をすべて開く</button>
