@@ -21,12 +21,15 @@ type Move = {
   word?: string
   correct?: boolean
   reasoning?: string
+  belief?: { word: string; prob: number }[]
+  questions?: { text: string; eig: number; chosen?: boolean }[]
 }
 type Game = {
   specIndex: number
   replicaIndex: number
   pair: [string, string]
   words: Record<string, string>
+  profiles?: Record<string, string>
   thinkerModels?: Record<string, string>
   answererModel?: string
   solved: boolean
@@ -229,6 +232,24 @@ const STYLE = `
   table.cmp th, table.cmp td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--bd); }
   table.cmp th { opacity: .55; font-weight: 600; font-size: 11px; }
   table.cmp td.num, table.cmp th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .belief { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+  .belief .cand { display: grid; grid-template-columns: 96px 1fr 40px; align-items: center; gap: 6px; font-size: 11px; }
+  .belief .cand .w { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .belief .cand .track { height: 8px; background: #8882; border-radius: 4px; overflow: hidden; }
+  .belief .cand .fill { display: block; height: 100%; background: #6cf; }
+  .belief .cand .p { text-align: right; opacity: .7; font-variant-numeric: tabular-nums; }
+  .prof { margin: 0 0 16px; }
+  .prof summary { font-size: 12px; opacity: .7; }
+  .prof .row { font-size: 12px; margin: 6px 0; opacity: .9; }
+  .qeig { margin-top: 10px; }
+  .qeig .qhead { font-size: 11px; opacity: .55; margin-bottom: 4px; }
+  .qeig .qrow { display: grid; grid-template-columns: 14px 1fr 70px 40px; align-items: center; gap: 6px; font-size: 11px; padding: 2px 0; }
+  .qeig .qrow.chosen { font-weight: 700; }
+  .qeig .mark { opacity: .7; }
+  .qeig .qt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qeig .qbar { height: 6px; background: #8882; border-radius: 3px; overflow: hidden; }
+  .qeig .qfill { display: block; height: 100%; background: #a78bfa; }
+  .qeig .qe { text-align: right; opacity: .7; font-variant-numeric: tabular-nums; }
 `
 
 function RunNav(props: { activeRun?: string; activeGame?: string }) {
@@ -359,7 +380,7 @@ function Bar(props: { parts: { label: string; n: number }[]; total: number }) {
     <div class="bar">
       {props.parts.map((p, i) =>
         p.n > 0 ? (
-          <i style={`width:${(p.n / props.total) * 100}%;background:${COLORS[i % COLORS.length]}`}>
+          <i style={`width:${(p.n / props.total) * 100}%;background:${p.label === '引き分け' ? '#6b7280' : COLORS[i % COLORS.length]}`}>
             {p.label} {p.n}
           </i>
         ) : null,
@@ -370,8 +391,8 @@ function Bar(props: { parts: { label: string; n: number }[]; total: number }) {
 
 function SummaryView(props: { agg: Agg; showPosition?: boolean }) {
   const a = props.agg
-  const wordParts = Object.entries(a.byWord).map(([label, n]) => ({ label, n }))
-  const posParts = Object.entries(a.byPosition).map(([label, n]) => ({ label, n }))
+  const wordParts = [...Object.entries(a.byWord).map(([label, n]) => ({ label, n })), { label: '引き分け', n: a.draws }]
+  const posParts = [...Object.entries(a.byPosition).map(([label, n]) => ({ label, n })), { label: '引き分け', n: a.draws }]
   return (
     <div>
       <div class="stat">
@@ -382,12 +403,47 @@ function SummaryView(props: { agg: Agg; showPosition?: boolean }) {
       </div>
       {props.showPosition ? (
         <>
-          <div>先手 / 後手</div>
-          <Bar parts={posParts} total={a.solved} />
+          <div>先手 / 後手 / 引き分け</div>
+          <Bar parts={posParts} total={a.n} />
         </>
       ) : null}
-      <div>語別の勝利</div>
-      <Bar parts={wordParts} total={a.solved} />
+      <div>語別の勝ち / 引き分け</div>
+      <Bar parts={wordParts} total={a.n} />
+    </div>
+  )
+}
+
+function Belief(props: { belief?: { word: string; prob: number }[] }) {
+  const b = props.belief
+  if (!b || !b.length) return null
+  return (
+    <div class="belief">
+      {b.slice(0, 8).map((c) => (
+        <div class="cand">
+          <span class="w">{c.word}</span>
+          <span class="track"><span class="fill" style={`width:${Math.round(c.prob * 100)}%`}></span></span>
+          <span class="p">{Math.round(c.prob * 100)}%</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Questions(props: { questions?: { text: string; eig: number; chosen?: boolean }[] }) {
+  const qs = props.questions
+  if (!qs || !qs.length) return null
+  const maxE = Math.max(...qs.map((q) => q.eig), 0.0001)
+  return (
+    <div class="qeig">
+      <div class="qhead">候補質問と EIG(採用 = ●・バーは EIG の相対値)</div>
+      {qs.map((q) => (
+        <div class={`qrow ${q.chosen ? 'chosen' : ''}`}>
+          <span class="mark">{q.chosen ? '●' : '○'}</span>
+          <span class="qt">{q.text}</span>
+          <span class="qbar"><span class="qfill" style={`width:${Math.round((q.eig / maxE) * 100)}%`}></span></span>
+          <span class="qe">{q.eig.toFixed(2)}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -396,6 +452,13 @@ function GameReplay(props: { game: Game }) {
   const g = props.game
   return (
     <div>
+      {g.profiles ? (
+        <details class="prof">
+          <summary>単語の意味(oracle が答える基準)</summary>
+          <div class="row"><b>{g.words['1']}</b>: {g.profiles['1']}</div>
+          <div class="row"><b>{g.words['2']}</b>: {g.profiles['2']}</div>
+        </details>
+      ) : null}
       <div class="legend">
         <span class="p1c">◀ P1 = {g.words['1']}{g.thinkerModels ? ` [${g.thinkerModels['1']}]` : ''}</span>
         <span class="mid">
@@ -417,6 +480,7 @@ function GameReplay(props: { game: Game }) {
                   <details>
                     <summary>思考</summary>
                     <p>{m.reasoning}</p>
+                    <Belief belief={m.belief} />
                   </details>
                 ) : null}
               </div>
@@ -435,6 +499,8 @@ function GameReplay(props: { game: Game }) {
                 <details>
                   <summary>思考</summary>
                   <p>{m.reasoning}</p>
+                  <Belief belief={m.belief} />
+                  <Questions questions={m.questions} />
                 </details>
               ) : null}
             </div>
