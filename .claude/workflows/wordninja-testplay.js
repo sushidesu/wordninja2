@@ -87,16 +87,54 @@ const PREMISE = [
   '"あなたが質問して相手が答えたもの" だけです。あなたが答えた回答は、あなた自身の単語の情報なので相手当てには使えません。',
 ].join('\n')
 
-const MOVE_SCHEMA = {
+// 外部化EIG: thinker は「生成」だけ担当し、質問の選択はコードが EIG 計算で行う
+const BELIEF_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    reasoning: { type: 'string', description: 'なぜこの手を選んだかの短い思考' },
-    kind: { type: 'string', enum: ['question', 'guess'] },
-    text: { type: 'string', description: 'kindがquestionのときの質問文(Yes/Noで答えられるもの)' },
-    word: { type: 'string', description: 'kindがguessのときに当てる単語' },
+    candidates: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false,
+        properties: { word: { type: 'string' }, prob: { type: 'number', description: '相対的なもっともらしさ(合計約1)' } },
+        required: ['word', 'prob'],
+      },
+    },
   },
-  required: ['reasoning', 'kind'],
+  required: ['candidates'],
+}
+
+const QUESTIONS_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { questions: { type: 'array', items: { type: 'string' } } },
+  required: ['questions'],
+}
+
+const SIM_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    grid: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false,
+        properties: {
+          question: { type: 'string' },
+          answers: {
+            type: 'array',
+            items: {
+              type: 'object', additionalProperties: false,
+              properties: { word: { type: 'string' }, value: { type: 'string', enum: ['はい', 'いいえ', '部分的にそう', 'わからない'] } },
+              required: ['word', 'value'],
+            },
+          },
+        },
+        required: ['question', 'answers'],
+      },
+    },
+  },
+  required: ['grid'],
 }
 
 const ANSWER_SCHEMA = {
@@ -157,31 +195,165 @@ function callAgent(prompt, schema, label, phaseName, model) {
   return agent(prompt, opts)
 }
 
-// thinker(思考役): 自分の単語と公開ログから次の1手を決める
-async function think(transcript, player, myWord, phaseName, model) {
-  const prompt = [
-    PREMISE,
-    '',
-    `あなたはプレイヤー${player}です。あなたの単語は「${myWord}」です。`,
-    `相手はプレイヤー${opponentOf(player)}です。相手の単語を当ててください。`,
-    '',
-    renderForPlayer(transcript, player),
-    '',
-    'あなたの番です。はい/いいえ当ての最適戦略(期待情報利得=EIG の最大化)に従って1手を選んでください:',
-    '1. これまでの回答すべてに矛盾しない「相手の単語の候補」を毎回作り直し、それぞれの"ありそうさ"を見積もる(ありふれた語ほど有力。共通テーマも手がかり)。前の手の前提を引きずらず、証拠だけから組み直す。',
-    '2. ひとつの候補が突出して有力なら、kind="guess" でその語を当てる。',
-    '3. まだ割れているなら kind="question"。次の手順で選ぶ:',
-    '   (a) 異なる切り口(形・素材・状態・由来・用途/機能 など)から、候補となる質問を数個思い浮かべる。',
-    '   (b) 各質問について「有力候補のうち、はい と答えるのは何割か」を見積もる。',
-    '   (c) はい/いいえ が最も半々(≒5割)に近い質問を選ぶ(=EIG最大)。ほぼ全員が同じ答えになる質問(例: 候補に金属が少ないのに「金属ですか?」)は情報が小さいので捨てる。',
-    '   質問文は端的に。例示で属性より狭く限定・誘導しない。既に分かっていることは聞かない。',
-    '',
-    '原則:',
-    '- 推測は手番を1つ消費し、外せばその間に相手が先に当てうる。確信が持てないのに、ありそうさの低い細かい候補を当てに行かない(損な賭け)。複数残るなら識別する質問を続ける。',
-    '- 回答は段階的(はい / いいえ / 部分的にそう / わからない)。「部分的にそう」は相手の語がその性質を一部持つ(その側面を含む)という部分情報として扱い、候補を消さず多面性の手がかりにする。「わからない」はその性質では絞れないものとして扱う。',
-    '- 回答は強い手がかりだが絶対ではない。ひとつの推論に賭けすぎない。',
-  ].join('\n')
-  return callAgent(prompt, MOVE_SCHEMA, `P${player}:思考`, phaseName, model)
+// ── 持続的ベイズ信念 + 外部化EIG の thinker (UoT: Uncertainty of Thoughts) ──────
+// LLM は「支持集合の提案・質問生成・回答予想」だけ担当する。確率(信念)はコードが所有し、
+// 観測回答ごとに P(語|回答) ∝ P(語)·P(回答|語,質問) でベイズ更新する。質問の"選択"は
+// この事後確率に対する EIG 計算でコードが行う。これにより ①証拠が乗算で積み上がり収束が急峻になる
+// ②既出質問は事後に織り込み済み → EIG≈0 で自動的に再選択されない(冗長再質問の根治)
+// ③「EIG最大と自己申告するだけ(後付け正当化)」を構造的に排除、を同時に満たす。
+const GUESS_THRESHOLD = 0.55 // 最有力候補の(正規化後)事後確率がこれ以上なら当てに行く
+const MAX_SUPPORT = 12 // 支持集合の上限(事後上位のみ残す)。毎ターンのLLM新提案を無制限に和集合すると集合が膨張し、信念が拡散して収束しない(EIG横並び・冗長質問が沈まない)ため
+
+function entropy(probs) {
+  const s = probs.reduce((a, p) => a + p, 0)
+  if (s <= 0) return 0
+  let h = 0
+  for (const p of probs) { const q = p / s; if (q > 0) h -= q * Math.log2(q) }
+  return h
+}
+
+function argmax(arr, f) {
+  let best = null, bestV = -Infinity
+  for (const x of arr) { const v = f(x); if (v > bestV) { bestV = v; best = x } }
+  return best
+}
+
+// 質問 q の期待情報利得: H(事前) − Σ_v P(答えv)·H(答えvで残る候補)
+function eig(question, grid, candidates) {
+  const row = grid.find((g) => g.question === question)
+  if (!row) return -Infinity
+  const ansOf = (w) => { const a = row.answers.find((x) => x.word === w); return a ? a.value : 'わからない' }
+  const total = candidates.reduce((a, c) => a + c.prob, 0) || 1
+  const buckets = {}
+  for (const c of candidates) { const v = ansOf(c.word); (buckets[v] = buckets[v] || []).push(c.prob) }
+  let expPost = 0
+  for (const v in buckets) {
+    const m = buckets[v].reduce((a, p) => a + p, 0)
+    expPost += (m / total) * entropy(buckets[v])
+  }
+  return entropy(candidates.map((c) => c.prob)) - expPost
+}
+
+// 予測回答 pred と実測 obs の軟マッチ尤度 P(obs | 語, 質問)。はい/いいえ を確定、
+// 部分的にそう/わからない を曖昧値として扱う3段階。単一の曖昧不一致で候補をゼロにしないため
+// 軟らかく持つ(oracle は各質問へ厳密に答える=個々の正確さ優先ゆえ予測とズレ得る)。
+function likelihood(pred, obs) {
+  if (pred === obs) return 0.8
+  const fuzzy = (v) => v === '部分的にそう' || v === 'わからない'
+  if (fuzzy(pred) || fuzzy(obs)) return 0.35
+  return 0.05 // はい↔いいえ の明確な逆
+}
+
+// 観測回答で信念をベイズ更新(in place)。尤度は回答シミュレーション grid をそのまま流用する。
+function bayesUpdate(belief, question, grid, observed) {
+  const row = grid.find((g) => g.question === question)
+  if (!row) return belief
+  const predOf = (w) => { const a = row.answers.find((x) => x.word === w); return a ? a.value : 'わからない' }
+  for (const c of belief) c.prob *= likelihood(predOf(c.word), observed)
+  const s = belief.reduce((a, c) => a + c.prob, 0)
+  if (s > 0) for (const c of belief) c.prob /= s
+  return belief
+}
+
+// LLM が提案した支持集合を既存の信念に統合する。確率はコードが所有するので、既存語の事後は
+// 保持し、新出語だけ小さな事前で追加する(LLMに確率をリセットさせない)。信念が空(初手)なら
+// LLM のもっともらしさをそのまま事前 P0 とする。事後が床未満かつ今回挙がらなかった語は剪定。
+function reconcileSupport(belief, proposed, rejected) {
+  // 誤推測で棄却された語は除外する(「Xか?→いいえ」は P(X)=0 の観測。再提案されても復活させない)。
+  const kept = belief.filter((c) => !rejected.has(c.word))
+  const byWord = new Map(kept.map((c) => [c.word, c]))
+  const seed = kept.length ? Math.max(Math.min(...kept.map((c) => c.prob)), 0.02) : 0
+  for (const p of proposed) {
+    if (rejected.has(p.word) || byWord.has(p.word)) continue
+    byWord.set(p.word, { word: p.word, prob: kept.length ? seed : (p.prob || 0.01) })
+  }
+  let list = [...byWord.values()]
+  const norm = () => { const s = list.reduce((a, c) => a + c.prob, 0) || 1; for (const c of list) c.prob /= s }
+  norm()
+  // 事後上位 MAX_SUPPORT に切り詰める(UoT の有界な可能性集合に倣う。ビーム探索/粒子フィルタ的な truncation)。
+  list.sort((a, b) => b.prob - a.prob)
+  if (list.length > MAX_SUPPORT) list = list.slice(0, MAX_SUPPORT)
+  norm()
+  return list
+}
+
+// 1手ぶんの意思決定。返り値の belief(統合後の支持集合)は呼び出し側が beliefs[player] に保持し、
+// oracle 回答後に bayesUpdate で事後へ更新する。move.grid は更新に使う質問×語の予測表。
+async function decide(belief, transcript, player, myWord, phaseName, model, rejected) {
+  const known = renderForPlayer(transcript, player)
+  const opp = opponentOf(player)
+
+  // ① 支持集合の提案(LLM)。既知事実に矛盾しない語を挙げさせ、コード側の事後と統合する。
+  //    候補は「互いに異なる代表概念」に限る: 同義語・言い換え・ブランド名/具体例を併記すると事後の
+  //    確率マスが等価な仮説へ分裂し、真の語が閾値に届かない(実測: カフェ/喫茶店/スタバ… へ分散して未解決)。
+  //    また事実に反しない範囲で異なる系統も含め多様性を保つ(1領域への早すぎる収束=誤固着を防ぐ)。
+  //    根拠: 仮説の distinctness による事後マス集中(entity disambiguation の posterior pursuit)+
+  //          active inference(EFE)の探索——情報利得が尽きるまで多様な仮説を保つ。
+  const prop = await callAgent([
+    'あなたはパーティゲーム「ワードニンジャ」の参加者で、相手プレイヤーの秘密の単語を当てようとしています。',
+    `すべての単語は共通のテーマで選ばれています。あなた自身の単語は「${myWord}」で、相手の単語とテーマで結ばれています(手がかり)。`,
+    '相手の単語について、あなたが質問して判明した事実:',
+    known,
+    '上の事実すべてに矛盾しない「相手の単語」の候補を、ありそうな順に最大12語、各語に相対的なもっともらしさ(合計約1.0)を付けて挙げてください。',
+    '候補リストの条件:',
+    '- 各候補は互いに明確に異なる概念にする。同じ対象の言い換え・同義語や、ある一般概念に含まれる具体例・商品名・ブランド名は候補に併記せず、最も一般的で代表的な語ひとつに統合する。',
+    '- ありふれた一般名詞を優先し、固有名詞や過度に限定的な語は避ける。',
+    '- 事実に反しない範囲で、異なる系統・カテゴリにわたる多様な候補を含める(ひとつの領域に偏らせない)。',
+  ].join('\n'), BELIEF_SCHEMA, `P${player}:候補`, phaseName, model)
+  const proposed = ((prop && prop.candidates) || []).filter((c) => c.word && String(c.word).trim())
+  const cands = reconcileSupport(belief, proposed, rejected)
+  if (!cands.length) return { move: { kind: 'question', text: 'それは生き物ですか?', reasoning: '候補生成失敗の保険' }, belief: cands }
+
+  // ② 突出した事後があれば当てに行く(コード判定)
+  const total = cands.reduce((a, c) => a + c.prob, 0) || 1
+  const top = argmax(cands, (c) => c.prob)
+  if (top.prob / total >= GUESS_THRESHOLD) return { move: { kind: 'guess', word: top.word, reasoning: `事後最大 ${top.word}(${(top.prob / total).toFixed(2)})` }, belief: cands }
+
+  // ③ 質問生成(LLM)。候補は"思考の手がかり"として見せる(思考の過程は残す)が、質問文は
+  //    候補を列挙しない素の一文に保つ。生成の狙いは「現在の信念を最も強く弁別する質問」=期待情報
+  //    利得の最大化(UoT / Learning to Ask Informative Questions, arXiv 2406.17453)。広く二分する
+  //    だけの汎用質問は近義語を分けられないため、候補が似通うときは差を突く弁別質問を作らせる。
+  //    さらに coarse-to-fine を優先させる(20 Questions 最適戦略 arXiv 2106.01737 = Huffman符号/均等分割:
+  //    機能・カテゴリの広い二分を先に、付随属性は後)——序盤を付随的属性に浪費し核心軸が遅れる問題への対処。
+  //    (プロンプトは Anthropic best practices: データをXMLで分離・重要順の明確な成功基準・肯定形の具体指示)
+  const qgen = await callAgent([
+    'あなたはパーティゲーム「ワードニンジャ」の質問者です。相手の秘密の単語を、はい/いいえ で答えられる質問で絞り込みます。',
+    `あなた自身の単語は「${myWord}」。すべての単語は共通テーマで結ばれています(手がかり)。`,
+    '相手の単語について、現時点の候補と確からしさ:',
+    '<候補>',
+    cands.map((c) => `${c.word} (${c.prob.toFixed(2)})`).join('\n'),
+    '</候補>',
+    'この候補集合を最も強く弁別する Yes/No 質問を8個作ってください。良い質問の条件(重要な順):',
+    '- まず「それが根本的に何か・そこで主に何をするか」という機能やカテゴリを問い、可能性を大きく二分する。時間帯・作法・頻度・雰囲気などの付随的な属性は、大きなカテゴリが定まってから細部を詰めるのに使う(粗いカテゴリ → 細部 の順)。',
+    '- 候補を「はい」と「いいえ」に大きく二分する(どちらかにほぼ全部が寄る質問は避ける)。確からしさの高い候補の切り分けを優先する。',
+    '- 候補が似通った語ばかりのときは、それらを分ける具体的な違い(用途・由来・見え方・形状・場所など)を突く。',
+    '- 8問は互いに異なる観点にし、同じ軸の言い換えを重複させない。',
+    '<質問文のルール>',
+    '- 一般化した性質を問う、短く自然な一文にする。実際のゲームで人が口にする形。',
+    '- 候補語そのものを文に挙げない。「(A・B を分ける)」のような例示・補足を文に含めない。',
+    '</質問文のルール>',
+  ].join('\n'), QUESTIONS_SCHEMA, `P${player}:質問案`, phaseName, model)
+  const questions = ((qgen && qgen.questions) || []).filter((q) => q && String(q).trim())
+  if (!questions.length) return { move: { kind: 'guess', word: top.word, reasoning: '質問生成失敗→最有力を当てる' }, belief: cands }
+
+  // ④ 回答シミュレーション(LLM生成、質問×支持集合)。EIG計算とベイズ更新の両方の尤度源。
+  const sim = await callAgent([
+    '次の各質問について、各候補語がどう答えるかを予想してください(その語の一般的な性質に基づき正確に。はい/いいえ/部分的にそう/わからない)。',
+    '候補語: ' + cands.map((c) => c.word).join(', '),
+    '質問:',
+    questions.map((q, i) => `${i + 1}. ${q}`).join('\n'),
+    'grid に、質問ごとに全候補語の予想回答を入れてください。',
+  ].join('\n'), SIM_SCHEMA, `P${player}:予想`, phaseName, model)
+  const grid = (sim && sim.grid) || []
+
+  // ⑤ 各質問の EIG をコードで計算し、最大を選ぶ(選択はコード)。事後に対する利得なので既出軸は自動で沈む。
+  //    候補質問と EIG は「なぜこの質問を選んだか」を追うためにログへ残す(採用を chosen=true で明示)。
+  const scored = questions
+    .map((q) => ({ text: q, eig: Math.round(eig(q, grid, cands) * 1000) / 1000 }))
+    .sort((a, b) => b.eig - a.eig)
+  const best = scored[0].text
+  const questionsOut = scored.map((s) => ({ text: s.text, eig: s.eig, chosen: s.text === best }))
+  return { move: { kind: 'question', text: best, grid, questions: questionsOut, reasoning: `EIG最大(支持${cands.length}語・質問${questions.length}をコード選択)` }, belief: cands }
 }
 
 // ゲーム開始時に各語の「実体」を一度だけ確定する。語ごとに安定した referent を持たせ、
@@ -285,19 +457,36 @@ async function playGame(inst) {
   ])
   const profiles = { 1: prof1, 2: prof2 }
 
+  // 各プレイヤーの信念(相手の単語についての事後確率)。ターンをまたいで持続する。
+  const beliefs = { 1: [], 2: [] }
+  // 誤推測で棄却された語(「Xか?→いいえ」= P(X)=0)。信念から除外し再推測を防ぐ。
+  const rejected = { 1: new Set(), 2: new Set() }
+
   for (let round = 0; round < MAX_ROUNDS && !solved; round++) {
     for (const player of [1, 2]) {
       if (solved) break
       totalTurns++
-      const move = await think(transcript, player, WORDS[player], phaseName, models[player])
+      const decision = await decide(beliefs[player], transcript, player, WORDS[player], phaseName, models[player], rejected[player])
+      beliefs[player] = decision.belief
+      const move = decision.move
       if (!move) continue
+      // 決定時点の信念(事後確率)を snapshot 保存(bayesUpdate で in-place 更新される前にコピー)。
+      // ビューワーで「候補が絞られていく様子」を見るための観測ログ。新規エージェント呼び出しは無い。
+      const belief = decision.belief.map((c) => ({ word: c.word, prob: Math.round(c.prob * 1000) / 1000 }))
 
       if (move.kind === 'guess') {
         const verdict = await judgeGuess(WORDS[opponentOf(player)], move.word, phaseName)
         const correct = verdict ? verdict.value === 'はい' : false
-        transcript.push({ turn: totalTurns, asker: player, kind: 'guess', word: move.word, correct, reasoning: move.reasoning })
+        transcript.push({ turn: totalTurns, asker: player, kind: 'guess', word: move.word, correct, reasoning: move.reasoning, belief })
         log(`[${phaseName}] T${totalTurns} P${player} 推測「${move.word}」→ ${correct ? '正解' : '不正解'}`)
         if (correct) { solved = true; winner = player }
+        else {
+          // 棄却語を信念から除去し確率を再分配(持続信念が外れ候補に固着するのを断つ)。
+          rejected[player].add(move.word)
+          beliefs[player] = beliefs[player].filter((c) => c.word !== move.word)
+          const s = beliefs[player].reduce((a, c) => a + c.prob, 0) || 1
+          for (const c of beliefs[player]) c.prob /= s
+        }
         continue
       }
 
@@ -305,7 +494,9 @@ async function playGame(inst) {
       const answerer = opponentOf(player)
       const ans = await oracle(WORDS[answerer], profiles[answerer], move.text, phaseName)
       const value = ans ? ans.value : '(無回答)'
-      transcript.push({ turn: totalTurns, asker: player, answerer, kind: 'question', text: move.text, answer: value, reasoning: move.reasoning })
+      // 観測回答で信念を事後へ更新(次ターンの EIG・当て判定はこの事後に基づく)。
+      if (value !== '(無回答)' && move.grid) bayesUpdate(beliefs[player], move.text, move.grid, value)
+      transcript.push({ turn: totalTurns, asker: player, answerer, kind: 'question', text: move.text, answer: value, reasoning: move.reasoning, belief, questions: move.questions })
       log(`[${phaseName}] T${totalTurns} P${player} 質問「${move.text}」→ ${value}`)
     }
   }
