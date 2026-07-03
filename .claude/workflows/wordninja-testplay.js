@@ -7,7 +7,8 @@ export const meta = {
 
 // ── 入力 contract ──────────────────────────────────────────────
 // type Model = 'opus' | 'sonnet' | 'haiku' | 'fable'
-// type RunSpec = { pair: [string,string]; repeat?: number; models?: {1?:Model;2?:Model} }
+// type PlayMode = 'externalized' | 'light'   // externalized=候補/質問/予想を分割生成しコードがEIG選択(既定)。light=1コールで次の一手を直接決める(内部推論。Fable向き)
+// type RunSpec = { pair: [string,string]; repeat?: number; models?: {1?:Model;2?:Model}; playModes?: {1?:PlayMode;2?:PlayMode} }
 // args(runs / pairs / pair のいずれか必須。フォールバック既定お題は持たない):
 //   logLabel: string                  ★必須。logs/<logLabel>/ に保存(game-*.json を逐次 + summary.json)
 //   runs?:  RunSpec[]                  主入力(最も柔軟)
@@ -15,6 +16,7 @@ export const meta = {
 //   pairs?: [string,string][]          複数お題(糖衣)
 //   repeat?: number                    全体デフォルトの並列リプレイ数(既定1)
 //   models?: {1?:Model;2?:Model}       thinker 既定モデル(A/B 割当)。省略でセッション既定を継承
+//   playModes?: {1?:PlayMode;2?:PlayMode}  プレイヤーごとの思考モード(既定 'externalized')。player単位で切替可(run固定でない)
 //   answererModel?: Model              oracle(回答役)モデル(既定 'sonnet')
 //   maxTurnsPerPlayer?: number          1プレイヤーあたりの手番上限(既定20)
 // ───────────────────────────────────────────────────────────────
@@ -34,6 +36,7 @@ if (typeof args === 'string') {
 
 const GLOBAL_REPEAT = A.repeat || 1
 const GLOBAL_MODELS = A.models || {}
+const GLOBAL_PLAY_MODES = A.playModes || {}
 const ANSWERER_MODEL = A.answererModel || 'sonnet'
 // 既定20: 収束しないゲームの暴走を防ぐ。40ターン(=各20手)で決まらなければ引き分け(solved:false)。
 // 高すぎるとフライリングしたゲームがグローバル上限(1000 agent calls)を食い潰し、並列の他ゲームを道連れにする。
@@ -69,8 +72,9 @@ const instances = []
 specs.forEach((spec, specIndex) => {
   const repeat = spec.repeat || GLOBAL_REPEAT
   const models = spec.models || GLOBAL_MODELS
+  const playModes = spec.playModes || GLOBAL_PLAY_MODES
   for (let r = 0; r < repeat; r++) {
-    instances.push({ pair: spec.pair, models, specIndex, replicaIndex: r, replicaCount: repeat })
+    instances.push({ pair: spec.pair, models, playModes, specIndex, replicaIndex: r, replicaCount: repeat })
   }
 })
 
@@ -277,8 +281,43 @@ function reconcileSupport(belief, proposed, rejected) {
   return list
 }
 
-// 1手ぶんの意思決定。返り値の belief(統合後の支持集合)は呼び出し側が beliefs[player] に保持し、
-// oracle 回答後に bayesUpdate で事後へ更新する。move.grid は更新に使う質問×語の予測表。
+// light モード(L2): 1コールで次の一手を直接決める。候補列挙・回答予想grid・コードEIG・信念を持たず、
+// モデルの内部推論に委ねる。ステップ分割の思考オーバーヘッドを排し、思考常時オンの Fable 等に向く。
+// (プロンプトは Anthropic の Fable ガイダンスに沿って目標志向・非規定的・簡潔に。過度な手順列挙をしない)
+const LIGHT_MOVE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    reasoning: { type: 'string', description: 'どう絞り込むかの要点を簡潔に' },
+    kind: { type: 'string', enum: ['question', 'guess'] },
+    content: { type: 'string', description: 'kind が question なら質問文、guess なら推測する単語' },
+  },
+  required: ['kind', 'content'],
+}
+
+async function decideLight(transcript, player, myWord, phaseName, model, rejected) {
+  const known = renderForPlayer(transcript, player)
+  const lines = [
+    PREMISE,
+    `あなたはプレイヤー${player}。あなた自身の単語は「${myWord}」で、相手の単語とは共通テーマで結ばれています(手がかり)。`,
+    '相手の単語について、あなたが質問して判明した事実:',
+    known,
+  ]
+  if (rejected && rejected.size) lines.push('既に外した推測(もう選ばない): ' + [...rejected].join('、'))
+  lines.push(
+    '次の一手を1つ決めてください。まだ相手の単語を一つに絞れていないなら、可能性を最も効率よく二分する Yes/No 質問を投げる。十分に確信できるなら、その単語を推測して勝ちにいく(早当て勝負)。',
+    '質問を選ぶ場合は、誰が答えても同じになる具体的で自然な一文にし、候補語の列挙や「(A・B を分ける)」のような補足は入れない。',
+    'kind に "question" か "guess"、content に質問文または推測する単語を入れてください。',
+  )
+  const res = await callAgent(lines.join('\n'), LIGHT_MOVE_SCHEMA, `P${player}:一手`, phaseName, model)
+  const content = (res && res.content && String(res.content).trim()) || ''
+  const reasoning = (res && res.reasoning) || 'light'
+  if (res && res.kind === 'guess' && content) return { move: { kind: 'guess', word: content, reasoning } }
+  return { move: { kind: 'question', text: content || 'それは生き物ですか?', reasoning } }
+}
+
+// 1手ぶんの意思決定(externalized モード)。返り値の belief(統合後の支持集合)は呼び出し側が beliefs[player]
+// に保持し、oracle 回答後に bayesUpdate で事後へ更新する。move.grid は更新に使う質問×語の予測表。
 async function decide(belief, transcript, player, myWord, phaseName, model, rejected) {
   const known = renderForPlayer(transcript, player)
   const opp = opponentOf(player)
@@ -443,7 +482,7 @@ async function save(obj, file, requiredKeys, phaseName) {
 
 // 1ゲーム=1お題1リプレイ。状態はこの関数内に閉じるので並列実行しても干渉しない。
 async function playGame(inst) {
-  const { pair, models, specIndex, replicaIndex, replicaCount } = inst
+  const { pair, models, playModes = {}, specIndex, replicaIndex, replicaCount } = inst
   const WORDS = { 1: pair[0], 2: pair[1] }
   const phaseName = replicaCount > 1 ? `${pair[0]}×${pair[1]} #${replicaIndex + 1}` : `${pair[0]}×${pair[1]}`
   const transcript = []
@@ -467,13 +506,20 @@ async function playGame(inst) {
     for (const player of [1, 2]) {
       if (solved) break
       totalTurns++
-      const decision = await decide(beliefs[player], transcript, player, WORDS[player], phaseName, models[player], rejected[player])
-      beliefs[player] = decision.belief
+      // プレイヤーごとにモードを選ぶ(run固定でなく player 単位)。light は 1コールで一手を直接決める(信念なし)。
+      const mode = playModes[player] === 'light' ? 'light' : 'externalized'
+      let decision
+      if (mode === 'light') {
+        decision = await decideLight(transcript, player, WORDS[player], phaseName, models[player], rejected[player])
+      } else {
+        decision = await decide(beliefs[player], transcript, player, WORDS[player], phaseName, models[player], rejected[player])
+        beliefs[player] = decision.belief
+      }
       const move = decision.move
       if (!move) continue
-      // 決定時点の信念(事後確率)を snapshot 保存(bayesUpdate で in-place 更新される前にコピー)。
+      // 決定時点の信念(事後確率)を snapshot 保存(externalized のみ。light は信念を持たないので空)。
       // ビューワーで「候補が絞られていく様子」を見るための観測ログ。新規エージェント呼び出しは無い。
-      const belief = decision.belief.map((c) => ({ word: c.word, prob: Math.round(c.prob * 1000) / 1000 }))
+      const belief = (decision.belief || []).map((c) => ({ word: c.word, prob: Math.round(c.prob * 1000) / 1000 }))
 
       if (move.kind === 'guess') {
         const verdict = await judgeGuess(WORDS[opponentOf(player)], move.word, phaseName)
@@ -509,6 +555,7 @@ async function playGame(inst) {
     words: WORDS,
     profiles,
     thinkerModels: { 1: models[1] || '(default)', 2: models[2] || '(default)' },
+    playModes: { 1: playModes[1] === 'light' ? 'light' : 'externalized', 2: playModes[2] === 'light' ? 'light' : 'externalized' },
     answererModel: ANSWERER_MODEL,
     solved,
     winner,
