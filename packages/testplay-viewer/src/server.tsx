@@ -450,10 +450,12 @@ function Belief(props: { belief?: { word: string; prob: number }[] }) {
   )
 }
 
-function Questions(props: { questions?: { text: string; eig: number; chosen?: boolean }[] }) {
+function Questions(props: { questions?: { text: string; eig: number | null; chosen?: boolean }[] }) {
   const qs = props.questions
   if (!qs || !qs.length) return null
-  const maxE = Math.max(...qs.map((q) => q.eig), 0.0001)
+  // 古いログは EIG が計算不能(-Infinity→null)の行を含み得る。null は 0 として描画する。
+  const eigOf = (q: { eig: number | null }) => q.eig ?? 0
+  const maxE = Math.max(...qs.map(eigOf), 0.0001)
   return (
     <div class="qeig">
       <div class="qhead">候補質問と EIG(採用 = ●・バーは EIG の相対値)</div>
@@ -461,8 +463,8 @@ function Questions(props: { questions?: { text: string; eig: number; chosen?: bo
         <div class={`qrow ${q.chosen ? 'chosen' : ''}`}>
           <span class="mark">{q.chosen ? '●' : '○'}</span>
           <span class="qt">{q.text}</span>
-          <span class="qbar"><span class="qfill" style={`width:${Math.round((q.eig / maxE) * 100)}%`}></span></span>
-          <span class="qe">{q.eig.toFixed(2)}</span>
+          <span class="qbar"><span class="qfill" style={`width:${Math.round((eigOf(q) / maxE) * 100)}%`}></span></span>
+          <span class="qe">{eigOf(q).toFixed(2)}</span>
         </div>
       ))}
     </div>
