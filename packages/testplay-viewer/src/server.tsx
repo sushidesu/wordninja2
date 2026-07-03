@@ -131,7 +131,7 @@ type G = 'run' | 'topic' | 'model'
 // ── モデル比較(単一モデルで集計。対戦相手は gate せず"パラメータ"扱い)──
 // 1ゲーム=プレイヤー枠2つ=2観測。sonnet同士なら sonnet の観測が2件、opus vs sonnet なら各1件。
 const norm = (m?: string) => m || '(default)'
-type Obs = { model: string; opponent: string; topicLabel: string; topicK: string; word: string; result: 'win' | 'loss' | 'draw'; turns: number }
+type Obs = { model: string; opponent: string; run: string; topicLabel: string; topicK: string; word: string; result: 'win' | 'loss' | 'draw'; turns: number }
 function observations(): Obs[] {
   const out: Obs[] = []
   for (const e of allGames()) {
@@ -141,7 +141,7 @@ function observations(): Obs[] {
       const opponent = norm(g.thinkerModels?.[String(p === 1 ? 2 : 1)])
       const result: Obs['result'] = !g.solved ? 'draw' : g.winner === p ? 'win' : 'loss'
       // 担当単語は正準の pair から導出(一部の古いログは words にプロファイル文が混入しているため)
-      out.push({ model, opponent, topicLabel: topicLabel(g.pair), topicK: topicKey(g.pair), word: g.pair[p - 1], result, turns: g.totalTurns })
+      out.push({ model, opponent, run: e.run, topicLabel: topicLabel(g.pair), topicK: topicKey(g.pair), word: g.pair[p - 1], result, turns: g.totalTurns })
     }
   }
   return out
@@ -162,16 +162,17 @@ function modelAgg(obs: Obs[]) {
   const avgTurns = wonTurns.length ? Math.round((wonTurns.reduce((a, b) => a + b, 0) / wonTurns.length) * 10) / 10 : null
   return { n: obs.length, wins, losses, draws, winRate: wins + losses ? wins / (wins + losses) : null, avgTurns }
 }
-// 潰さず保持するセル = お題 × 担当単語 × 相手
-type MCell = { topicLabel: string; word: string; opponent: string; win: number; loss: number; draw: number }
+// セル = run × お題 × 担当単語 × 相手。run 間で設定(プロンプトやワークフロー版)が変わるため、
+// run を跨いで合算せず、run を第一キーとして分けて見せる(新しい run が上)。
+type MCell = { run: string; topicLabel: string; word: string; opponent: string; win: number; loss: number; draw: number }
 function modelCells(obs: Obs[]): MCell[] {
   const map = new Map<string, MCell>()
   for (const o of obs) {
-    const k = o.topicK + '::' + o.word + '::' + o.opponent
-    if (!map.has(k)) map.set(k, { topicLabel: o.topicLabel, word: o.word, opponent: o.opponent, win: 0, loss: 0, draw: 0 })
+    const k = o.run + '::' + o.topicK + '::' + o.word + '::' + o.opponent
+    if (!map.has(k)) map.set(k, { run: o.run, topicLabel: o.topicLabel, word: o.word, opponent: o.opponent, win: 0, loss: 0, draw: 0 })
     map.get(k)![o.result]++
   }
-  return [...map.values()].sort((a, b) => a.topicLabel.localeCompare(b.topicLabel) || a.word.localeCompare(b.word) || a.opponent.localeCompare(b.opponent))
+  return [...map.values()].sort((a, b) => b.run.localeCompare(a.run) || a.topicLabel.localeCompare(b.topicLabel) || a.word.localeCompare(b.word) || a.opponent.localeCompare(b.opponent))
 }
 const pct = (x: number | null) => (x == null ? '–' : Math.round(x * 100) + '%')
 
@@ -250,6 +251,8 @@ const STYLE = `
   .qeig .qbar { height: 6px; background: #8882; border-radius: 3px; overflow: hidden; }
   .qeig .qfill { display: block; height: 100%; background: #a78bfa; }
   .qeig .qe { text-align: right; opacity: .7; font-variant-numeric: tabular-nums; }
+  .tbar { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; }
+  .tbar .tl { font-size: 12px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `
 
 function RunNav(props: { activeRun?: string; activeGame?: string }) {
@@ -389,10 +392,18 @@ function Bar(props: { parts: { label: string; n: number }[]; total: number }) {
   )
 }
 
-function SummaryView(props: { agg: Agg; showPosition?: boolean }) {
-  const a = props.agg
-  const wordParts = [...Object.entries(a.byWord).map(([label, n]) => ({ label, n })), { label: '引き分け', n: a.draws }]
+function SummaryView(props: { games: Game[]; showPosition?: boolean }) {
+  const a = aggregate(props.games)
   const posParts = [...Object.entries(a.byPosition).map(([label, n]) => ({ label, n })), { label: '引き分け', n: a.draws }]
+  // 語別の勝敗はお題ごとに1本のバーにする。語が競うのは同じお題の相手だけなので、
+  // 別のお題の語を1本に混ぜると割合に意味がなくなる。
+  const byTopic = new Map<string, { label: string; games: Game[] }>()
+  for (const g of props.games) {
+    const k = topicKey(g.pair)
+    if (!byTopic.has(k)) byTopic.set(k, { label: topicLabel(g.pair), games: [] })
+    byTopic.get(k)!.games.push(g)
+  }
+  const topics = [...byTopic.values()].sort((x, y) => x.label.localeCompare(y.label))
   return (
     <div>
       <div class="stat">
@@ -407,8 +418,18 @@ function SummaryView(props: { agg: Agg; showPosition?: boolean }) {
           <Bar parts={posParts} total={a.n} />
         </>
       ) : null}
-      <div>語別の勝ち / 引き分け</div>
-      <Bar parts={wordParts} total={a.n} />
+      <div>語別の勝ち / 引き分け{topics.length > 1 ? ' — お題ごと' : ''}</div>
+      {topics.map((t) => {
+        const ta = aggregate(t.games)
+        const words = [...t.games[0].pair].sort()
+        const parts = [...words.map((w) => ({ label: w, n: ta.byWord[w] || 0 })), { label: '引き分け', n: ta.draws }]
+        return (
+          <div class={topics.length > 1 ? 'tbar' : ''}>
+            {topics.length > 1 ? <span class="tl">{t.label}</span> : null}
+            <Bar parts={parts} total={ta.n} />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -444,6 +465,77 @@ function Questions(props: { questions?: { text: string; eig: number; chosen?: bo
           <span class="qe">{q.eig.toFixed(2)}</span>
         </div>
       ))}
+    </div>
+  )
+}
+
+// run 内のモデル別成績。run はモデル設定が揃っているので、モデル比較はここに置くのが最も意味を持つ
+// (run を跨ぐと設定が変わり比較にならない)。別モデル対戦のゲームだけから集計する。
+function RunModelSection(props: { games: Game[] }) {
+  const hh = props.games.filter((g) => norm(g.thinkerModels?.['1']) !== norm(g.thinkerModels?.['2']))
+  if (!hh.length) return null
+  const models = [...new Set(hh.flatMap((g) => [norm(g.thinkerModels?.['1']), norm(g.thinkerModels?.['2'])]))].sort()
+  const overall = new Map<string, { win: number; loss: number; draw: number; turns: number[] }>()
+  const rows = new Map<string, { topicLabel: string; word: string; byModel: Map<string, { win: number; loss: number; draw: number }> }>()
+  for (const g of hh) {
+    for (const p of [1, 2] as const) {
+      const m = norm(g.thinkerModels?.[String(p)])
+      const word = g.pair[p - 1]
+      const res: 'win' | 'loss' | 'draw' = !g.solved ? 'draw' : g.winner === p ? 'win' : 'loss'
+      if (!overall.has(m)) overall.set(m, { win: 0, loss: 0, draw: 0, turns: [] })
+      const o = overall.get(m)!
+      o[res]++
+      if (res === 'win') o.turns.push(g.totalTurns)
+      const rk = topicKey(g.pair) + '::' + word
+      if (!rows.has(rk)) rows.set(rk, { topicLabel: topicLabel(g.pair), word, byModel: new Map() })
+      const r = rows.get(rk)!
+      if (!r.byModel.has(m)) r.byModel.set(m, { win: 0, loss: 0, draw: 0 })
+      r.byModel.get(m)![res]++
+    }
+  }
+  const rowArr = [...rows.values()].sort((a, b) => a.topicLabel.localeCompare(b.topicLabel) || a.word.localeCompare(b.word))
+  return (
+    <div>
+      <h3 style="margin:24px 0 8px;font-size:14px;opacity:.8">モデル別成績 — 別モデル対戦 {hh.length}ゲーム</h3>
+      <table class="cmp">
+        <thead>
+          <tr><th>モデル</th><th class="num">勝</th><th class="num">敗</th><th class="num">分</th><th class="num">勝率</th><th class="num">勝利時平均手数</th></tr>
+        </thead>
+        <tbody>
+          {models.map((m) => {
+            const o = overall.get(m)!
+            const avg = o.turns.length ? Math.round((o.turns.reduce((a, b) => a + b, 0) / o.turns.length) * 10) / 10 : null
+            return (
+              <tr>
+                <td>{m}</td>
+                <td class="num">{o.win}</td>
+                <td class="num">{o.loss}</td>
+                <td class="num">{o.draw}</td>
+                <td class="num">{o.win + o.loss ? Math.round((o.win / (o.win + o.loss)) * 100) + '%' : '–'}</td>
+                <td class="num">{avg ?? '–'}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+      <div style="margin-top:16px">単語ごとの成績 — 同じ行でモデルを見比べると条件が揃った比較になる</div>
+      <table class="cmp">
+        <thead>
+          <tr><th>お題</th><th>持った単語</th>{models.map((m) => <th class="num">{m} の 勝-敗-分</th>)}</tr>
+        </thead>
+        <tbody>
+          {rowArr.map((r) => (
+            <tr>
+              <td>{r.topicLabel}</td>
+              <td>{r.word}</td>
+              {models.map((m) => {
+                const c = r.byModel.get(m)
+                return <td class="num">{c ? `${c.win}-${c.loss}-${c.draw}` : '–'}</td>
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -554,13 +646,15 @@ app.get('/', (c) => {
 app.get('/run/:label', (c) => {
   const label = c.req.param('label')
   if (!safe(label) || !existsSync(join(LOGS_DIR, label))) return c.notFound()
-  const agg = aggregate(listGames(label))
+  const games = listGames(label)
+  const agg = aggregate(games)
   return c.html(
     page(
       <Layout group="run" activeRun={label}>
         <div class="crumb">run / {label}</div>
         <h2>{label}</h2>
-        <SummaryView agg={agg} showPosition={true} />
+        <SummaryView games={games} showPosition={true} />
+        <RunModelSection games={games} />
       </Layout>,
     ),
   )
@@ -570,13 +664,14 @@ app.get('/topic/:key', (c) => {
   const key = c.req.param('key')
   const topic = groupTopics().find((t) => t.key === key)
   if (!topic) return c.notFound()
-  const agg = aggregate(topic.entries.map((e) => e.game))
+  const topicGames = topic.entries.map((e) => e.game)
+  const agg = aggregate(topicGames)
   return c.html(
     page(
       <Layout group="topic" activeTopicKey={key}>
         <div class="crumb">お題 / {topic.label}</div>
         <h2>{topic.label}</h2>
-        <SummaryView agg={agg} showPosition={false} />
+        <SummaryView games={topicGames} showPosition={false} />
         <h3 style="margin:20px 0 8px;font-size:14px;opacity:.8">全プレイ({agg.n})— run 横断</h3>
         <div>
           {topic.entries.map((e) => (
@@ -610,17 +705,18 @@ app.get('/model/:name', (c) => {
           <div><b>{a.avgTurns ?? '–'}</b><span>勝った時の平均手数</span></div>
           <div><b>{a.n}</b><span>出場</span></div>
         </div>
-        <div>お題 × 担当単語 × 相手 ごとの成績</div>
+        <div>run × お題 × 担当単語 × 相手 ごとの成績 — run が違えば設定も違うので合算していない</div>
         <table class="cmp">
           <thead>
             <tr>
-              <th>お題</th><th>担当単語</th><th>相手</th>
+              <th>run</th><th>お題</th><th>担当単語</th><th>相手</th>
               <th class="num">勝</th><th class="num">負</th><th class="num">分</th><th class="num">勝率</th>
             </tr>
           </thead>
           <tbody>
             {cells.map((c2) => (
               <tr>
+                <td><a href={`/run/${encodeURIComponent(c2.run)}`} style="color:inherit">{c2.run}</a></td>
                 <td>{c2.topicLabel}</td>
                 <td>{c2.word}</td>
                 <td>{c2.opponent}</td>
@@ -632,7 +728,7 @@ app.get('/model/:name', (c) => {
             ))}
           </tbody>
         </table>
-        <div class="meta" style="margin-top:10px">勝率は相手によって変わります。別のモデルと公平に比べるときは、同じ「お題・担当単語・相手」の行どうしを見比べてください。</div>
+        <div class="meta" style="margin-top:10px">このページはモデルの出場履歴の索引。設定の揃った比較は各 run のサマリにある「モデル別成績」で見る(run 列のリンクから飛べる)。</div>
       </Layout>,
     ),
   )
