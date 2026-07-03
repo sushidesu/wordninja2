@@ -18,11 +18,24 @@ type Move = {
   kind: 'question' | 'guess'
   text?: string
   answer?: string
+  answerReasoning?: string
   word?: string
   correct?: boolean
   reasoning?: string
+  verdictReasoning?: string
   belief?: { word: string; prob: number }[]
+  beliefAfter?: { word: string; prob: number }[]
+  predictions?: Record<string, string>
   questions?: { text: string; eig: number; chosen?: boolean }[]
+}
+type RoleCost = { calls: number; costUsd: number; durationMs: number }
+type GameCost = RoleCost & { byRole?: Record<string, RoleCost> }
+type PlayerMetrics = {
+  targetFirstInSupportTurn?: number | null
+  targetEvictions?: number
+  targetFinalProb?: number | null
+  targetFinalRank?: number | null
+  wrongGuesses?: number
 }
 type Game = {
   specIndex: number
@@ -31,7 +44,10 @@ type Game = {
   words: Record<string, string>
   profiles?: Record<string, string>
   thinkerModels?: Record<string, string>
+  playModes?: Record<string, string>
   answererModel?: string
+  cost?: GameCost
+  metrics?: Record<string, PlayerMetrics>
   solved: boolean
   winner: number | null
   winnerWord: string | null
@@ -253,6 +269,20 @@ const STYLE = `
   .qeig .qe { text-align: right; opacity: .7; font-variant-numeric: tabular-nums; }
   .tbar { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: center; }
   .tbar .tl { font-size: 12px; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cfg { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+  .cfg .pill { margin: 0; }
+  .gmeta { display: flex; flex-wrap: wrap; gap: 6px; margin: -8px 0 14px; }
+  .gmeta .pill { margin: 0; }
+  .bu { margin-top: 8px; }
+  .bu .qhead { font-size: 11px; opacity: .55; margin-bottom: 4px; }
+  .bu .brow { display: grid; grid-template-columns: 96px 84px 1fr 104px; gap: 6px; align-items: center; font-size: 11px; padding: 1px 0; }
+  .bu .w { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bu .pred { font-size: 10px; text-align: center; }
+  .bu .track { height: 7px; background: #8882; border-radius: 4px; overflow: hidden; }
+  .bu .fill { display: block; height: 100%; background: #6cf; }
+  .bu .delta { text-align: right; font-variant-numeric: tabular-nums; opacity: .85; }
+  .bu .delta.up { color: #22c55e; }
+  .bu .delta.down { color: #f87171; }
 `
 
 function RunNav(props: { activeRun?: string; activeGame?: string }) {
@@ -450,6 +480,74 @@ function Belief(props: { belief?: { word: string; prob: number }[] }) {
   )
 }
 
+// 信念の更新: 各候補の「予想回答」と、実際の回答を受けた確率の 前→後。
+// どの候補がなぜ上がり/下がったか(予想が実回答と一致したか)がベイズ更新の説明になる。
+function BeliefUpdate(props: { move: Move }) {
+  const m = props.move
+  if (!m.beliefAfter) return <Belief belief={m.belief} />
+  const before = new Map((m.belief ?? []).map((c) => [c.word, c.prob]))
+  const rows = m.beliefAfter.slice().sort((a, b) => b.prob - a.prob)
+  return (
+    <div class="bu">
+      <div class="qhead">信念の更新 — 各候補の予想回答と、実際の回答「{m.answer}」を受けた確率の変化</div>
+      {rows.map((r) => {
+        const b = before.get(r.word)
+        const dir = b == null ? '' : r.prob > b + 0.005 ? 'up' : r.prob < b - 0.005 ? 'down' : ''
+        const pred = m.predictions?.[r.word]
+        return (
+          <div class="brow">
+            <span class="w">{r.word}</span>
+            <span class={`pred ans ${pred ?? ''}`}>{pred ?? '–'}</span>
+            <span class="track"><span class="fill" style={`width:${Math.round(r.prob * 100)}%`}></span></span>
+            <span class={`delta ${dir}`}>
+              {b != null ? `${Math.round(b * 100)}%` : '–'} → {Math.round(r.prob * 100)}%{dir === 'up' ? ' ▲' : dir === 'down' ? ' ▼' : ''}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// run の設定(summary.config)をピルで表示。run 間の違いを一目にするのが目的。
+// runs(お題リスト)は語別バーで見えるので出さない。
+const CFG_LABELS: Record<string, string> = {
+  answererModel: 'oracle',
+  maxTurnsPerPlayer: '上限手数/人',
+  effort: 'effort',
+  guessThreshold: '推測閾値',
+  maxSupport: '候補上限',
+  harness: 'harness',
+  likelihood: '尤度',
+}
+function ConfigPills(props: { config: Record<string, unknown> }) {
+  const items: { k: string; v: string }[] = []
+  for (const [k, v] of Object.entries(props.config)) {
+    if (k === 'runs' || v == null) continue
+    const label = CFG_LABELS[k] ?? k
+    const text = typeof v === 'object' ? Object.values(v as Record<string, unknown>).join(' / ') : String(v)
+    items.push({ k: label, v: text })
+  }
+  return (
+    <>
+      {items.map((i) => (
+        <span class="pill">{i.k}: {i.v}</span>
+      ))}
+    </>
+  )
+}
+
+const money = (usd: number) => '$' + (usd >= 10 ? usd.toFixed(2) : usd.toFixed(3))
+const mins = (ms: number) => Math.round(ms / 60000) + '分'
+function metricsText(pm: PlayerMetrics) {
+  const parts: string[] = []
+  parts.push(pm.targetFirstInSupportTurn != null ? `正解が候補入り T${pm.targetFirstInSupportTurn}` : '正解が候補に入らず')
+  if (pm.targetEvictions) parts.push(`候補落ち ${pm.targetEvictions}回`)
+  if (pm.targetFinalProb != null) parts.push(`終了時 ${Math.round(pm.targetFinalProb * 100)}%・${pm.targetFinalRank ?? '–'}位`)
+  parts.push(`誤推測 ${pm.wrongGuesses ?? 0}`)
+  return parts.join(' / ')
+}
+
 function Questions(props: { questions?: { text: string; eig: number | null; chosen?: boolean }[] }) {
   const qs = props.questions
   if (!qs || !qs.length) return null
@@ -561,6 +659,13 @@ function GameReplay(props: { game: Game }) {
         </span>
         <span class="p2c">P2 = {g.words['2']}{g.thinkerModels ? ` [${g.thinkerModels['2']}]` : ''} ▶</span>
       </div>
+      {(g.cost || g.metrics) ? (
+        <div class="gmeta">
+          {g.cost ? <span class="pill">{money(g.cost.costUsd)}・{g.cost.calls}呼び出し・{mins(g.cost.durationMs)}</span> : null}
+          {g.metrics?.['1'] ? <span class="pill" style="color:#818cf8">P1: {metricsText(g.metrics['1'])}</span> : null}
+          {g.metrics?.['2'] ? <span class="pill" style="color:#f472b6">P2: {metricsText(g.metrics['2'])}</span> : null}
+        </div>
+      ) : null}
       <div class="replay">
         {g.transcript.map((m) => {
           if (m.kind === 'guess') {
@@ -575,6 +680,12 @@ function GameReplay(props: { game: Game }) {
                     <summary>思考</summary>
                     <p>{m.reasoning}</p>
                     <Belief belief={m.belief} />
+                  </details>
+                ) : null}
+                {m.verdictReasoning ? (
+                  <details>
+                    <summary>判定の理由</summary>
+                    <p>{m.verdictReasoning}</p>
                   </details>
                 ) : null}
               </div>
@@ -593,8 +704,14 @@ function GameReplay(props: { game: Game }) {
                 <details>
                   <summary>思考</summary>
                   <p>{m.reasoning}</p>
-                  <Belief belief={m.belief} />
                   <Questions questions={m.questions} />
+                  <BeliefUpdate move={m} />
+                </details>
+              ) : null}
+              {m.answerReasoning ? (
+                <details>
+                  <summary>回答の理由</summary>
+                  <p>{m.answerReasoning}</p>
                 </details>
               ) : null}
             </div>
@@ -649,12 +766,20 @@ app.get('/run/:label', (c) => {
   const label = c.req.param('label')
   if (!safe(label) || !existsSync(join(LOGS_DIR, label))) return c.notFound()
   const games = listGames(label)
-  const agg = aggregate(games)
+  const meta = readJson<{ config?: Record<string, unknown>; summary?: { cost?: GameCost } }>(join(LOGS_DIR, label, 'summary.json'))
+  const cost = meta?.summary?.cost
   return c.html(
     page(
       <Layout group="run" activeRun={label}>
         <div class="crumb">run / {label}</div>
         <h2>{label}</h2>
+        {meta?.config ? <div class="cfg"><ConfigPills config={meta.config} /></div> : null}
+        {cost ? (
+          <div class="meta" style="margin:-6px 0 14px">
+            コスト {money(cost.costUsd)}・{cost.calls}呼び出し・LLM時間 {mins(cost.durationMs)}
+            {cost.byRole ? ' — ' + Object.entries(cost.byRole).map(([r, v]) => `${r} ${money(v.costUsd)}`).join(' / ') : ''}
+          </div>
+        ) : null}
         <SummaryView games={games} showPosition={true} />
         <RunModelSection games={games} />
       </Layout>,
