@@ -283,6 +283,25 @@ const STYLE = `
   .bu .delta { text-align: right; font-variant-numeric: tabular-nums; opacity: .85; }
   .bu .delta.up { color: #22c55e; }
   .bu .delta.down { color: #f87171; }
+  .crumb a { color: inherit; text-decoration: none; }
+  .crumb a:hover { text-decoration: underline; }
+  /* ── モバイル ── マスター/ディテール型: 一覧(サイドバー)はトップページ、
+     詳細ページは内容のみ表示しパンくずで一覧へ戻る(トグルは使わない)── */
+  @media (max-width: 760px) {
+    .wrap { grid-template-columns: 1fr; }
+    .side { position: static; max-height: none; border-right: none; }
+    .wrap.detail .side { display: none; }
+    .wrap.home .main { display: none; }
+    .main { padding: 16px 12px; }
+    .turn { max-width: 100%; }
+    .legend { flex-wrap: wrap; row-gap: 2px; }
+    .legend .mid { order: 3; width: 100%; text-align: left; }
+    table.cmp { display: block; overflow-x: auto; white-space: nowrap; }
+    .tbar { grid-template-columns: 92px 1fr; gap: 6px; }
+    .bu .brow { grid-template-columns: 68px 64px 1fr 86px; }
+    .qeig .qrow { grid-template-columns: 12px 1fr 44px 34px; }
+    #capture { padding: 12px 10px; }
+  }
 `
 
 function RunNav(props: { activeRun?: string; activeGame?: string }) {
@@ -370,7 +389,7 @@ function ModelNav(props: { activeName?: string }) {
   )
 }
 
-function Layout(props: { group: G; activeRun?: string; activeTopicKey?: string; activeModel?: string; activeGame?: string; children: unknown }) {
+function Layout(props: { group: G; home?: boolean; activeRun?: string; activeTopicKey?: string; activeModel?: string; activeGame?: string; children: unknown }) {
   const g = props.group
   return (
     <html lang="ja">
@@ -381,7 +400,7 @@ function Layout(props: { group: G; activeRun?: string; activeTopicKey?: string; 
         <style dangerouslySetInnerHTML={{ __html: STYLE }} />
       </head>
       <body>
-        <div class="wrap">
+        <div class={`wrap ${props.home ? 'home' : 'detail'}`}>
           <nav class="side">
             <h1>TESTPLAY</h1>
             <div class="gtoggle">
@@ -759,7 +778,7 @@ function parseG(c: { req: { query: (k: string) => string | undefined } }): G {
 app.get('/', (c) => {
   const g = parseG(c)
   const what = g === 'topic' ? 'お題' : g === 'model' ? 'モデル比較' : 'run'
-  return c.html(page(<Layout group={g}><div class="empty">左から {what} を選んでください。</div></Layout>))
+  return c.html(page(<Layout group={g} home={true}><div class="empty">左から {what} を選んでください。</div></Layout>))
 })
 
 app.get('/run/:label', (c) => {
@@ -771,7 +790,7 @@ app.get('/run/:label', (c) => {
   return c.html(
     page(
       <Layout group="run" activeRun={label}>
-        <div class="crumb">run / {label}</div>
+        <div class="crumb"><a href="/?g=run">run一覧</a> / {label}</div>
         <h2>{label}</h2>
         {meta?.config ? <div class="cfg"><ConfigPills config={meta.config} /></div> : null}
         {cost ? (
@@ -782,6 +801,17 @@ app.get('/run/:label', (c) => {
         ) : null}
         <SummaryView games={games} showPosition={true} />
         <RunModelSection games={games} />
+        <h3 style="margin:24px 0 8px;font-size:14px;opacity:.8">ゲーム一覧({games.length})</h3>
+        <div>
+          {games.map((gm) => (
+            <a
+              style="display:block;padding:7px 12px;border:1px solid var(--bd);border-radius:8px;margin:5px 0;text-decoration:none;color:inherit"
+              href={`/run/${encodeURIComponent(label)}/game/${gameFileName(gm)}`}
+            >
+              {gm.pair[0]}×{gm.pair[1]} #{gm.replicaIndex + 1} — {gm.solved ? `勝者 ${gm.winnerWord}(${gm.totalTurns}手)` : `引き分け(${gm.totalTurns}手)`}
+            </a>
+          ))}
+        </div>
       </Layout>,
     ),
   )
@@ -796,7 +826,7 @@ app.get('/topic/:key', (c) => {
   return c.html(
     page(
       <Layout group="topic" activeTopicKey={key}>
-        <div class="crumb">お題 / {topic.label}</div>
+        <div class="crumb"><a href="/?g=topic">お題一覧</a> / {topic.label}</div>
         <h2>{topic.label}</h2>
         <SummaryView games={topicGames} showPosition={false} />
         <h3 style="margin:20px 0 8px;font-size:14px;opacity:.8">全プレイ({agg.n})— run 横断</h3>
@@ -824,7 +854,7 @@ app.get('/model/:name', (c) => {
   return c.html(
     page(
       <Layout group="model" activeModel={name}>
-        <div class="crumb">モデル</div>
+        <div class="crumb"><a href="/?g=model">モデル一覧</a> / {name}</div>
         <h2>{name}</h2>
         <div class="stat">
           <div><b>{pct(a.winRate)}</b><span>勝率</span></div>
@@ -877,7 +907,15 @@ app.get('/run/:label/game/:file', (c) => {
         activeTopicKey={g === 'topic' ? topicKey(game.pair) : undefined}
       >
         <div class="crumb">
-          {g === 'topic' ? `お題 / ${topicLabel(game.pair)}` : `run / ${label}`} / #{game.replicaIndex + 1}
+          {g === 'topic' ? (
+            <>
+              <a href="/?g=topic">お題一覧</a> / <a href={`/topic/${encodeURIComponent(topicKey(game.pair))}?g=topic`}>{topicLabel(game.pair)}</a>
+            </>
+          ) : (
+            <>
+              <a href="/?g=run">run一覧</a> / <a href={`/run/${encodeURIComponent(label)}`}>{label}</a>
+            </>
+          )}{' '}/ #{game.replicaIndex + 1}
         </div>
         <div id="toolbar" class="toolbar">
           <button onclick="toggleAll(true)">思考をすべて開く</button>
