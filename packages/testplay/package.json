@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "play": "tsx src/cli.ts",
+    "judge": "tsx src/judge.ts",
+    "test": "tsx --test src/engine/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
