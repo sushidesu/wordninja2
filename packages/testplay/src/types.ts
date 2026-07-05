@@ -5,8 +5,10 @@
 export type Model = 'opus' | 'sonnet' | 'haiku' | 'fable' | (string & {})
 
 // externalized = 候補/質問/予想を分割生成しコードが EIG 選択(既定)。
-// light = 1コールで次の一手を直接決める(内部推論。思考常時オンのモデル向き)。
-export type PlayMode = 'externalized' | 'light'
+// light = 1コールで次の一手を直接決める(内部推論)。
+// readout = 1コールで「候補上位+確率」と次の質問を読み出す。証拠統合は LLM に
+//           委ね、コードは推測判定(しきい値)と観測ログだけを担う(純LLM統合)。
+export type PlayMode = 'externalized' | 'light' | 'readout'
 
 export type Player = 1 | 2
 export type Value = 'はい' | 'いいえ' | '部分的にそう' | 'わからない'
@@ -54,6 +56,9 @@ export type Candidate = { word: string; prob: number }
 
 export type ScoredQuestion = { text: string; eig: number; chosen: boolean }
 
+/** 新出語の参入監査: 遡及係数と、切り詰め後に生き残ったか(参入ゲートの観測) */
+export type NewcomerAudit = { word: string; factor: number; kept: boolean }
+
 // ── transcript ──────────────────────────────────────────────────
 export type QuestionMove = {
   turn: number
@@ -74,6 +79,8 @@ export type QuestionMove = {
   beliefAfter?: Candidate[]
   /** 候補質問と EIG(採用は chosen=true)。light は無し */
   questions?: ScoredQuestion[]
+  /** このターンに提案された新出語の参入監査。light は無し */
+  newcomers?: NewcomerAudit[]
 }
 
 export type GuessMove = {
@@ -86,6 +93,8 @@ export type GuessMove = {
   verdictReasoning: string
   reasoning: string
   belief: Candidate[]
+  /** このターンに提案された新出語の参入監査。light は無し */
+  newcomers?: NewcomerAudit[]
 }
 
 export type Move = QuestionMove | GuessMove
@@ -128,7 +137,7 @@ export type ResolvedConfig = {
   effort: string | null
   guessThreshold: number
   maxSupport: number
-  likelihood: { match: number; fuzzy: number; invert: number }
+  likelihood: Record<string, number>
   runs: Required<Pick<RunSpec, 'pair'>>[] & RunSpec[]
   harness: 'claude-cli'
 }

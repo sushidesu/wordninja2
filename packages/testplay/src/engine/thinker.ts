@@ -2,9 +2,12 @@
 // externalized: 候補提案・質問生成・回答予想を LLM に分担させ、選択(EIG 最大)
 // と確率(信念)はコードが持つ。light: 1コールで次の一手を直接決める。
 // プロンプト文は workflow 版から一字一句移植(挙動を変えない)。
-import type { Candidate, Player, PlayMode, Value, Move, ScoredQuestion } from '../types.ts'
-import { GUESS_THRESHOLD, argmax, eig, reconcileSupport, type PredictionRow } from './belief.ts'
-import { BELIEF_SCHEMA, LIGHT_MOVE_SCHEMA, QUESTIONS_SCHEMA, SIM_SCHEMA } from './schemas.ts'
+import type { Candidate, NewcomerAudit, Player, PlayMode, Value, Move, ScoredQuestion } from '../types.ts'
+import {
+  GUESS_THRESHOLD, argmax, dedupeReadout, eig, historyConsistencyFactor, mergeSupport, truncateSupport,
+  type PredictionRow,
+} from './belief.ts'
+import { BELIEF_SCHEMA, LIGHT_MOVE_SCHEMA, QUESTIONS_SCHEMA, READOUT_SCHEMA, SIM_SCHEMA } from './schemas.ts'
 
 export const PREMISE = [
   'あなたはパーティゲーム「ワードニンジャ」をプレイしています。',
@@ -57,8 +60,9 @@ export type ThinkerDecision =
       /** 採用質問への各候補の予想回答(ベイズ更新の尤度源・観測ログにそのまま残す) */
       predictions: PredictionRow
       questions: ScoredQuestion[]
+      newcomers: NewcomerAudit[]
     }
-  | { kind: 'guess'; word: string; reasoning: string; belief: Candidate[] }
+  | { kind: 'guess'; word: string; reasoning: string; belief: Candidate[]; newcomers: NewcomerAudit[] }
 
 // light モード: 1コールで次の一手を直接決める(信念・EIG を持たない)
 export async function decideLight(
@@ -93,6 +97,50 @@ export async function decideLight(
   return { kind: res.kind, content, reasoning: res.reasoning ?? 'light' }
 }
 
+// readout モード: 1コールで「候補上位+確率」と次の質問を読み出す。証拠統合は
+// LLM の内部推論に委ね(毎ターン全事実で条件付けし直す)、コードは表記ゆれ統合と
+// 推測判定(しきい値)と観測ログだけを担う。externalized の縫い目(merge/参入
+// ゲート/遡及)を一切通らない、純LLM統合の対照群。
+export async function decideReadout(
+  call: ThinkerCall,
+  transcript: Move[],
+  player: Player,
+  myWord: string,
+  model: string,
+  rejected: Set<string>,
+): Promise<{ kind: 'question' | 'guess'; content: string; reasoning: string; belief: Candidate[] }> {
+  const known = renderForPlayer(transcript, player)
+  const lines = [
+    PREMISE,
+    `あなたはプレイヤー${player}。あなた自身の単語は「${myWord}」で、相手の単語とは共通テーマで結ばれています(手がかり)。`,
+    '相手の単語について、あなたが質問して判明した事実:',
+    known,
+  ]
+  if (rejected.size) lines.push('既に外れた推測(候補に含めない): ' + [...rejected].join('、'))
+  lines.push(
+    'ここまでの事実すべてを踏まえて、次の2つを出してください。',
+    '1. candidates: 相手の単語として今ありそうな候補を、ありそうな順に最大10語、相対的なもっともらしさ(合計約1.0)付きで。各候補は互いに異なる代表概念1語にする(同義語の併記や括弧の補足を付けない)。ごく一般的でありふれた語を優先する。',
+    '2. question: 次に投げる Yes/No 質問を1つ。候補を最も効率よく二分する、誰が答えても同じになる具体的で自然な一文(候補語の列挙や補足を含めない)。',
+  )
+  const res = await call<{ candidates: Candidate[]; question: string; reasoning?: string }>({
+    prompt: lines.join('\n'),
+    schema: READOUT_SCHEMA,
+    label: `P${player}:読み出し`,
+    model,
+  })
+  const belief = dedupeReadout(res.candidates ?? [], rejected)
+  if (!belief.length) throw new Error(`readout returned no usable candidates (P${player})`)
+  const reasoning = res.reasoning ?? 'readout'
+  // 推測判定はコードが所有(externalized と同じしきい値で比較可能に)
+  const top = belief[0]
+  if (top.prob >= GUESS_THRESHOLD) {
+    return { kind: 'guess', content: top.word, reasoning: `読み出し事後最大 ${top.word}(${top.prob.toFixed(2)})`, belief }
+  }
+  const question = String(res.question ?? '').trim()
+  if (!question) throw new Error(`readout returned empty question (P${player})`)
+  return { kind: 'question', content: question, reasoning, belief }
+}
+
 // externalized モード: 1手ぶんの意思決定。返り値の belief は呼び出し側が保持し、
 // oracle 回答後に bayesUpdate で事後へ更新する。grid は更新に使う質問×語の予測表。
 export async function decide(
@@ -114,7 +162,8 @@ export async function decide(
       `すべての単語は共通のテーマで選ばれています。あなた自身の単語は「${myWord}」で、相手の単語とテーマで結ばれています(手がかり)。`,
       '相手の単語について、あなたが質問して判明した事実:',
       known,
-      '上の事実すべてに矛盾しない「相手の単語」の候補を、ありそうな順に最大12語、各語に相対的なもっともらしさ(合計約1.0)を付けて挙げてください。',
+      '上の事実に整合する「相手の単語」の候補を、ありそうな順に最大12語、各語に相対的なもっともらしさ(合計約1.0)を付けて挙げてください。',
+      '注意: 回答にはまれに誤りや解釈のずれが混ざります。ごく一般的でありふれた語がほとんどの事実に整合するなら、1つの回答と食い違うだけで除外せず、候補に含めてください(矛盾の重みづけはこちらで行います)。',
       '候補リストの条件:',
       '- 各候補は互いに明確に異なる概念にする。同じ対象の言い換え・同義語や、ある一般概念に含まれる具体例・商品名・ブランド名は候補に併記せず、最も一般的で代表的な語ひとつに統合する。',
       '- ありふれた一般名詞を優先し、固有名詞や過度に限定的な語は避ける。',
@@ -125,14 +174,74 @@ export async function decide(
     model,
   })
   const proposed = (prop.candidates ?? []).filter((c) => c.word && String(c.word).trim())
-  const cands = reconcileSupport(belief, proposed, rejected)
-  if (!cands.length) throw new Error(`candidate proposal produced empty support (P${player})`)
+  const merged = mergeSupport(belief, proposed, rejected)
+  if (!merged.length) throw new Error(`candidate proposal produced empty support (P${player})`)
+
+  // ①' 新出語の遡及条件付け。新出語は floor 確率で入るが、過去の観測(自分の質問への
+  //     回答)との整合は未評価のまま。整合していれば floor 維持・矛盾していれば減衰させる
+  //     ことで、「本命が floor のまま truncation に追い出される」churn と「矛盾する新参が
+  //     生き残る」の両方を防ぐ。予想は1コールで 新出語 × 既出質問 をまとめて取る。
+  const knownWords = new Set(belief.map((c) => c.word))
+  const newcomers = merged.filter((c) => !knownWords.has(c.word))
+  const retroFactors = new Map<string, number>()
+  const asked = transcript.filter(
+    (e): e is Extract<Move, { kind: 'question' }> => e.kind === 'question' && e.asker === player && e.answer !== '(無回答)',
+  )
+  if (newcomers.length && asked.length) {
+    const retro = await call<{ grid: { question_index: number; answers: { word_index: number; value: Value }[] }[] }>({
+      prompt: [
+        '次の各質問について、各候補語がどう答えるかを予想してください(その語の一般的な性質に基づき正確に。はい/いいえ/部分的にそう/わからない)。',
+        'その語の通常の・典型的な姿で判断し、明確なときは「はい」「いいえ」に倒してください。「部分的にそう」は対象が本質的に複数の顔を持つ場合のみ、「わからない」は本当に判断できない場合のみ。',
+        '質問は、ふつうの人が日常会話で使う意味で解釈してください(厳密な定義や狭い字義で読まない)。',
+        '候補語(word_index はこの番号):',
+        newcomers.map((c, i) => `${i + 1}. ${c.word}`).join('\n'),
+        '質問(question_index はこの番号):',
+        asked.map((q, i) => `${i + 1}. ${q.text}`).join('\n'),
+        'grid に、質問ごと(question_index)に全候補語(word_index)の予想回答を入れてください。',
+      ].join('\n'),
+      schema: SIM_SCHEMA,
+      label: `P${player}:遡及予想`,
+      model,
+    })
+    const predsByWord = new Map<string, Map<number, Value>>()
+    for (const g of retro.grid ?? []) {
+      const qi = g.question_index - 1
+      if (qi < 0 || qi >= asked.length) continue
+      for (const a of g.answers ?? []) {
+        const w = newcomers[a.word_index - 1]
+        if (!w) continue
+        let m = predsByWord.get(w.word)
+        if (!m) predsByWord.set(w.word, (m = new Map()))
+        m.set(qi, a.value)
+      }
+    }
+    for (const c of newcomers) {
+      const preds = predsByWord.get(c.word)
+      const factor = historyConsistencyFactor(
+        asked.map((q, qi) => ({ pred: preds?.get(qi), obs: q.answer as Value })),
+      )
+      retroFactors.set(c.word, factor)
+      c.prob *= factor
+    }
+  }
+  const cands = truncateSupport(merged)
+  // 参入監査: どの新出語が、どの係数で、生き残った/切られたか(信念の唯一の入口の観測)
+  const keptWords = new Set(cands.map((c) => c.word))
+  const newcomerAudit: NewcomerAudit[] = newcomers.map((c) => ({
+    word: c.word,
+    factor: Math.round((retroFactors.get(c.word) ?? 1) * 1000) / 1000,
+    kept: keptWords.has(c.word),
+  }))
 
   // ② 突出した事後があれば当てに行く(コード判定)
   const total = cands.reduce((a, c) => a + c.prob, 0) || 1
   const top = argmax(cands, (c) => c.prob)!
   if (top.prob / total >= GUESS_THRESHOLD) {
-    return { kind: 'guess', word: top.word, reasoning: `事後最大 ${top.word}(${(top.prob / total).toFixed(2)})`, belief: cands }
+    return {
+      kind: 'guess', word: top.word,
+      reasoning: `事後最大 ${top.word}(${(top.prob / total).toFixed(2)})`,
+      belief: cands, newcomers: newcomerAudit,
+    }
   }
 
   // ③ 質問生成(LLM)。狙いは「現在の信念を最も強く弁別する質問」= EIG 最大化。
@@ -165,9 +274,14 @@ export async function decide(
 
   // ④ 回答シミュレーション(LLM生成、質問×支持集合)。EIG 計算とベイズ更新の尤度源。
   //    質問・候補語は番号で参照させ、コード側で正準の語に引き直す(echo 照合を排除)。
+  // 回答政策は oracle 側と対称に保つ(典型で判断・明確に倒す)。予測だけが
+  // 「部分的にそう」で hedge すると、definite な実回答とすれ違い続けて
+  // 正解語が枯死する(実測: カフェ)。
   const sim = await call<{ grid: { question_index: number; answers: { word_index: number; value: Value }[] }[] }>({
     prompt: [
       '次の各質問について、各候補語がどう答えるかを予想してください(その語の一般的な性質に基づき正確に。はい/いいえ/部分的にそう/わからない)。',
+      'その語の通常の・典型的な姿で判断し、明確なときは「はい」「いいえ」に倒してください。「部分的にそう」は対象が本質的に複数の顔を持つ場合のみ、「わからない」は本当に判断できない場合のみ。',
+      '質問は、ふつうの人が日常会話で使う意味で解釈してください(厳密な定義や狭い字義で読まない)。',
       '候補語(word_index はこの番号):',
       cands.map((c, i) => `${i + 1}. ${c.word}`).join('\n'),
       '質問(question_index はこの番号):',
@@ -208,9 +322,7 @@ export async function decide(
     belief: cands,
     predictions: best.row,
     questions: questionsOut,
+    newcomers: newcomerAudit,
   }
 }
 
-export function resolvePlayMode(mode: PlayMode | undefined): PlayMode {
-  return mode === 'light' ? 'light' : 'externalized'
-}

@@ -5,9 +5,9 @@ import { addUsage, callLlm, emptyUsage } from '../llm.ts'
 import type {
   Candidate, GameCost, GameLog, Model, Move, Player, PlayerMetrics, PlayMode, QuestionMove, Value,
 } from '../types.ts'
-import { bayesUpdate } from './belief.ts'
+import { bayesUpdate, wordParts } from './belief.ts'
 import { answerQuestion, judgeGuess } from './oracle.ts'
-import { decide, decideLight } from './thinker.ts'
+import { decide, decideLight, decideReadout } from './thinker.ts'
 
 // 全コール共通のシステムプロンプト。同一文字列に保つことで claude -p の
 // プロンプトキャッシュ接頭辞(ツール定義+system)が全コールで共有される。
@@ -34,7 +34,10 @@ const snapshot = (belief: Candidate[]): Candidate[] =>
 
 // 収束メトリクスを transcript から導出(externalized のみ意味を持つ)
 function computeMetrics(transcript: Move[], player: Player, targetWord: string, mode: PlayMode): PlayerMetrics | null {
-  if (mode !== 'externalized') return null
+  if (mode === 'light') return null // light は信念を持たないため導出不能
+  // 表記ゆれ(「カフェ・喫茶店」等)を正解語と同一視して判定する。
+  // 正準化後の信念では通常は完全一致だが、判定は部品ベースで頑健に。
+  const isTarget = (w: string) => w === targetWord || wordParts(w).includes(targetWord)
   let firstIn: number | null = null
   let evictions = 0
   let wasIn = false
@@ -47,13 +50,13 @@ function computeMetrics(transcript: Move[], player: Player, targetWord: string, 
     const b = e.kind === 'question' ? (e.beliefAfter ?? e.belief) : e.belief
     if (!b.length) continue
     last = b
-    const isIn = b.some((c) => c.word === targetWord)
+    const isIn = b.some((c) => isTarget(c.word))
     if (isIn && firstIn == null) firstIn = e.turn
     if (wasIn && !isIn) evictions++
     wasIn = isIn
   }
   const sorted = last ? [...last].sort((a, b) => b.prob - a.prob) : []
-  const idx = sorted.findIndex((c) => c.word === targetWord)
+  const idx = sorted.findIndex((c) => isTarget(c.word))
   return {
     targetFirstInSupportTurn: firstIn,
     targetEvictions: evictions,
@@ -101,13 +104,17 @@ export async function playGame(
       const mode = playModes[player]
       const opp = opponentOf(player)
 
-      if (mode === 'light') {
-        const move = await decideLight(thinkerCall, transcript, player, words[player], models[player], rejected[player])
+      if (mode === 'light' || mode === 'readout') {
+        const move =
+          mode === 'light'
+            ? { ...(await decideLight(thinkerCall, transcript, player, words[player], models[player], rejected[player])), belief: [] as Candidate[] }
+            : await decideReadout(thinkerCall, transcript, player, words[player], models[player], rejected[player])
+        const belief = snapshot(move.belief)
         if (move.kind === 'guess') {
           const verdict = await judgeGuess(oracleCall, words[opp], move.content, config.answererModel)
           transcript.push({
             turn: totalTurns, asker: player, kind: 'guess', word: move.content,
-            correct: verdict.correct, verdictReasoning: verdict.reasoning, reasoning: move.reasoning, belief: [],
+            correct: verdict.correct, verdictReasoning: verdict.reasoning, reasoning: move.reasoning, belief,
           })
           console.log(`[${phase}] T${totalTurns} P${player} 推測「${move.content}」→ ${verdict.correct ? '正解' : '不正解'}`)
           if (verdict.correct) { solved = true; winner = player }
@@ -117,7 +124,7 @@ export async function playGame(
         const ans = await answerQuestion(oracleCall, words[opp], profiles[opp], move.content, config.answererModel)
         transcript.push({
           turn: totalTurns, asker: player, answerer: opp, kind: 'question', text: move.content,
-          answer: ans.value, answerReasoning: ans.reasoning, reasoning: move.reasoning, belief: [],
+          answer: ans.value, answerReasoning: ans.reasoning, reasoning: move.reasoning, belief,
         })
         console.log(`[${phase}] T${totalTurns} P${player} 質問「${move.content}」→ ${ans.value}`)
         continue
@@ -134,7 +141,8 @@ export async function playGame(
         const verdict = await judgeGuess(oracleCall, words[opp], decision.word, config.answererModel)
         transcript.push({
           turn: totalTurns, asker: player, kind: 'guess', word: decision.word,
-          correct: verdict.correct, verdictReasoning: verdict.reasoning, reasoning: decision.reasoning, belief: beliefAtDecision,
+          correct: verdict.correct, verdictReasoning: verdict.reasoning, reasoning: decision.reasoning,
+          belief: beliefAtDecision, newcomers: decision.newcomers,
         })
         console.log(`[${phase}] T${totalTurns} P${player} 推測「${decision.word}」→ ${verdict.correct ? '正解' : '不正解'}`)
         if (verdict.correct) { solved = true; winner = player }
@@ -158,6 +166,7 @@ export async function playGame(
         predictions: decision.predictions,
         beliefAfter: snapshot(beliefs[player]),
         questions: decision.questions,
+        newcomers: decision.newcomers,
       }
       transcript.push(entry)
       console.log(`[${phase}] T${totalTurns} P${player} 質問「${decision.text}」→ ${ans.value}`)

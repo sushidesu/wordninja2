@@ -92,6 +92,29 @@ export const PROFILE_SCHEMA = {
   required: ['profile'],
 }
 
+// readout モード: 候補分布の読み出し + 次の質問を1コールで
+export const READOUT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    reasoning: { type: 'string', description: '現在の絞り込み状況の要点を簡潔に' },
+    candidates: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          word: { type: 'string' },
+          prob: { type: 'number', description: '相対的なもっともらしさ(合計約1)' },
+        },
+        required: ['word', 'prob'],
+      },
+    },
+    question: { type: 'string', description: '次に投げる Yes/No 質問(1文)' },
+  },
+  required: ['candidates', 'question'],
+}
+
 export const LIGHT_MOVE_SCHEMA = {
   type: 'object',
   additionalProperties: false,

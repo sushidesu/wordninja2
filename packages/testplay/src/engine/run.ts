@@ -12,7 +12,9 @@ import { profileWord } from './oracle.ts'
 
 const DEFAULT_ANSWERER: Model = 'sonnet'
 const DEFAULT_THINKER: Model = 'sonnet'
-const DEFAULT_MAX_TURNS = 20
+// 目標「総20手で解決」+ 誤答マージン2手 = 総24手(12/プレイヤー)で引き分け。
+// それ以上のプレイは目標に照らして情報価値が低く、コール数だけ食う。
+const DEFAULT_MAX_TURNS = 12
 
 function resolveSpecs(input: Input): RunSpec[] {
   if (Array.isArray(input.runs)) return input.runs
@@ -42,9 +44,11 @@ export async function runTestplay(input: Input): Promise<Summary> {
     1: spec.models?.[1] ?? input.models?.[1] ?? DEFAULT_THINKER,
     2: spec.models?.[2] ?? input.models?.[2] ?? DEFAULT_THINKER,
   })
+  const resolveMode = (m: PlayMode | undefined): PlayMode =>
+    m === 'light' || m === 'readout' ? m : 'externalized'
   const resolveModes = (spec: RunSpec): Record<Player, PlayMode> => ({
-    1: (spec.playModes?.[1] ?? input.playModes?.[1]) === 'light' ? 'light' : 'externalized',
-    2: (spec.playModes?.[2] ?? input.playModes?.[2]) === 'light' ? 'light' : 'externalized',
+    1: resolveMode(spec.playModes?.[1] ?? input.playModes?.[1]),
+    2: resolveMode(spec.playModes?.[2] ?? input.playModes?.[2]),
   })
 
   const instances: GameInstance[] = []

@@ -21,7 +21,8 @@ pnpm --filter @wordninja/testplay play runs/soba.json
 - `logLabel` ★必須。`logs/<logLabel>/` に保存
 - `runs` / `pairs` / `pair` のいずれか必須(フォールバック既定お題なし)
 - `repeat` 並列リプレイ数(既定1)、`models` / `playModes` プレイヤー別指定
-- `answererModel` oracle のモデル(既定 sonnet)、`maxTurnsPerPlayer`(既定20)
+- `answererModel` oracle のモデル(既定 sonnet)、`maxTurnsPerPlayer`(既定12 = 総24手。
+  目標「総20手で解決」+誤答マージン)
 - `maxConcurrency` claude プロセスの同時上限(既定8)
 - `effort` 全コールの思考量(`low`〜`max`。未指定は CLI 既定)
 
