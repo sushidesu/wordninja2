@@ -1,56 +1,39 @@
-# Welcome to your Expo app 👋
+# @wordninja/mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+ワードニンジャ (ボードゲーム) のスマホアプリ。Expo + expo-router で iOS / Android / Web に対応する。
 
-## Get started
+## 起動
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+ルートから実行する (`cd` しない):
 
 ```bash
-npm run reset-project
+pnpm --filter @wordninja/mobile start            # Expo dev server
+pnpm --filter @wordninja/mobile start:tailscale  # 実機を Tailscale 経由で繋ぐ場合
+pnpm --filter @wordninja/mobile ios              # iOS シミュレータ
+pnpm --filter @wordninja/mobile web              # ブラウザ
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+検証:
 
-### Other setup steps
+```bash
+pnpm --filter @wordninja/mobile typecheck
+pnpm --filter @wordninja/mobile lint
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## 構成
 
-## Learn more
+画面遷移はゲームのフェーズと 1:1 (`src/app/` の file-based routing):
 
-To learn more about developing your project with Expo, look at the following resources:
+| ルート | フェーズ |
+|--------|---------|
+| `/` | セットアップ (参加者・チーム数・お題) |
+| `/assignment` | お題の受け渡し確認 (巻物をスワイプで開く) |
+| `/playing` | 対面プレイ中 (経過時間の表示のみ) |
+| `/result` | 結果発表 (お題とチーム分けの公開) |
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- `src/features/game/` — ゲームのロジックと各フェーズの UI。state は `game-context.tsx` に集約
+- `src/components/` — 見た目のみの共有コンポーネント (巻物・ボタンなど)
+- `src/constants/theme.ts` — デザイントークン。スタイルの決まりは [STYLING.md](./STYLING.md) を参照
 
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+オンライン対戦用の質問-投票フロー (`playing-phase.tsx` と game-context 内の関連 state) は
+現在未使用だが、オンライン実装時に復帰するため温存している。
