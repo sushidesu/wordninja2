@@ -17,6 +17,7 @@ export default function SetupScreen() {
     <SetupPhase
       players={game.setupPlayers}
       teamCount={game.teamCount}
+      maxTeams={game.maxTeamCount}
       useCustomTopic={game.useCustomTopic}
       customTopics={game.customTopics}
       onAddPlayer={game.addPlayer}

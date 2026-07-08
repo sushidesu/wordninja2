@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AdaptiveScrollView } from '@/components/adaptive-scroll-view';
@@ -18,6 +18,7 @@ import type { Player } from './types';
 type Props = {
   players: Player[];
   teamCount: number;
+  maxTeams: number;
   useCustomTopic: boolean;
   customTopics: string[];
   onAddPlayer: () => void;
@@ -32,6 +33,7 @@ type Props = {
 export function SetupPhase({
   players,
   teamCount,
+  maxTeams,
   useCustomTopic,
   customTopics,
   onAddPlayer,
@@ -42,12 +44,6 @@ export function SetupPhase({
   onUpdateCustomTopic,
   onStartGame,
 }: Props) {
-  // チーム数はプレイヤー数を超えられない (最小2)。プレイヤー削除で超過したら丸める。
-  const maxTeams = Math.min(4, Math.max(2, players.length));
-  useEffect(() => {
-    if (teamCount > maxTeams) onSetTeamCount(maxTeams);
-  }, [maxTeams, teamCount, onSetTeamCount]);
-
   return (
     <PhaseFrame backgroundColor={Colors.canvas}>
       <AdaptiveScrollView style={styles.scrollArea} contentContainerStyle={styles.setupContent}>

@@ -1,15 +1,24 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 import { TeamColors } from '@/constants/theme';
 
 import { INITIAL_GAME_STATE, TOPICS } from './constants';
-import type { GameState, Player, Team } from './types';
+import type { GameState, Player, Question, Team } from './types';
+
+/** 偏りのないシャッフル (Fisher–Yates)。 */
+function shuffle<T>(items: readonly T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 
 /** ランダムなテーマグループからチーム数ぶんの語を重複なく選ぶ。 */
 function pickRandomTopics(teamCount: number): string[] {
   const group = TOPICS[Math.floor(Math.random() * TOPICS.length)];
-  const shuffled = [...group].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, teamCount);
+  return shuffle(group).slice(0, teamCount);
 }
 
 /** チーム数ぶんのチームを生成し、各チームに別々のお題を1語ずつ割り当てる。 */
@@ -26,8 +35,7 @@ function generateTeams(teamCount: number, customTopics?: string[]): Team[] {
 }
 
 function assignPlayersToTeams(players: Player[], teams: Team[]): Player[] {
-  const shuffled = [...players].sort(() => Math.random() - 0.5);
-  return shuffled.map((player, index) => {
+  return shuffle(players).map((player, index) => {
     const team = teams[index % teams.length];
     return { ...player, teamId: team.id, topic: team.topic };
   });
@@ -43,7 +51,10 @@ function setupInitialVotes(players: Player[]): Record<string, 'yes' | 'no'> {
 type GameContextValue = {
   // ---- setup state ----
   setupPlayers: Player[];
+  /** 実効チーム数。常に 2〜maxTeamCount に収まる。 */
   teamCount: number;
+  /** 選べる最大チーム数 (プレイヤー数と上限4で決まる)。 */
+  maxTeamCount: number;
   useCustomTopic: boolean;
   customTopics: string[];
   addPlayer: () => void;
@@ -60,10 +71,6 @@ type GameContextValue = {
 
   // ---- assignment ----
   assignmentIndex: number;
-  assignmentRevealed: boolean;
-  makimonoContainerWidth: number;
-  onMakimonoContainerLayout: (e: { nativeEvent: { layout: { width: number } } }) => void;
-  setAssignmentRevealed: (value: boolean) => void;
 
   // ---- playing / voting ----
   isVoting: boolean;
@@ -92,14 +99,6 @@ type GameContextValue = {
   endGame: () => void;
 };
 
-type Question = {
-  id: string;
-  askerId: string;
-  text: string;
-  votes: Record<string, 'yes' | 'no'>;
-  revealed: boolean;
-};
-
 const GameContext = createContext<GameContextValue | null>(null);
 
 export function useGame(): GameContextValue {
@@ -118,49 +117,43 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     { id: '3', name: '' },
     { id: '4', name: '' },
   ]);
-  const [teamCount, setTeamCount] = useState(2);
+  // 選択値はそのまま保持し、公開する teamCount は毎回クランプして導出する。
+  // プレイヤー削除で上限が下がっても、再追加すれば選択値に戻る。
+  const [teamCountChoice, setTeamCount] = useState(2);
+  const maxTeamCount = Math.min(4, Math.max(2, setupPlayers.length));
+  const teamCount = Math.min(teamCountChoice, maxTeamCount);
+
   const [useCustomTopic, setUseCustomTopic] = useState(false);
   // チームごとのお題。最大チーム数 (4) ぶん確保し、teamCount ぶんだけ使う。
   const [customTopics, setCustomTopics] = useState<string[]>(['', '', '', '']);
 
-  const updateCustomTopic = useCallback((index: number, value: string) => {
-    setCustomTopics((prev) => prev.map((topic, i) => (i === index ? value : topic)));
-  }, []);
-
   const [assignmentIndex, setAssignmentIndex] = useState(0);
-  const [assignmentRevealed, setAssignmentRevealed] = useState(false);
-  const [makimonoContainerWidth, setMakimonoContainerWidth] = useState(0);
-  const onMakimonoContainerLayout = useCallback(
-    (e: { nativeEvent: { layout: { width: number } } }) => {
-      setMakimonoContainerWidth(e.nativeEvent.layout.width);
-    },
-    [],
-  );
 
   const [isVoting, setIsVoting] = useState(false);
   const [questionText, setQuestionText] = useState('');
   const [currentVotes, setCurrentVotes] = useState<Record<string, 'yes' | 'no'>>({});
 
   const currentPlayer = gameState.players[gameState.currentTurnPlayerIndex];
-  const currentQuestion = useMemo(
-    () => gameState.questions.find((q) => !q.revealed),
-    [gameState.questions],
-  );
+  const currentQuestion = gameState.questions.find((q) => !q.revealed);
 
-  const addPlayer = useCallback(() => {
+  const addPlayer = () => {
     const newId = String(Date.now());
     setSetupPlayers((prev) => [...prev, { id: newId, name: '' }]);
-  }, []);
+  };
 
-  const updatePlayerName = useCallback((id: string, name: string) => {
+  const updatePlayerName = (id: string, name: string) => {
     setSetupPlayers((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)));
-  }, []);
+  };
 
-  const removePlayer = useCallback((id: string) => {
+  const removePlayer = (id: string) => {
     setSetupPlayers((prev) => prev.filter((p) => p.id !== id));
-  }, []);
+  };
 
-  const startGame = useCallback(() => {
+  const updateCustomTopic = (index: number, value: string) => {
+    setCustomTopics((prev) => prev.map((topic, i) => (i === index ? value : topic)));
+  };
+
+  const startGame = () => {
     if (setupPlayers.length < 2) return;
 
     const trimmedTopics = customTopics.slice(0, teamCount).map((topic) => topic.trim());
@@ -182,31 +175,28 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       currentTurnPlayerIndex: Math.floor(Math.random() * setupPlayers.length),
     });
     setAssignmentIndex(0);
-    setAssignmentRevealed(false);
     setIsVoting(false);
     setQuestionText('');
     setCurrentVotes({});
-  }, [setupPlayers, teamCount, useCustomTopic, customTopics]);
+  };
 
-  const restartGame = useCallback(() => {
+  const restartGame = () => {
     setGameState(INITIAL_GAME_STATE);
     setAssignmentIndex(0);
-    setAssignmentRevealed(false);
     setIsVoting(false);
     setQuestionText('');
     setCurrentVotes({});
-  }, []);
+  };
 
-  const proceedAssignment = useCallback((): boolean => {
+  const proceedAssignment = (): boolean => {
     if (assignmentIndex < gameState.players.length - 1) {
       setAssignmentIndex((prev) => prev + 1);
-      setAssignmentRevealed(false);
       return false;
     }
     return true;
-  }, [assignmentIndex, gameState.players.length]);
+  };
 
-  const startVoting = useCallback(() => {
+  const startVoting = () => {
     const trimmed = questionText.trim();
     if (!trimmed || !currentPlayer) return;
 
@@ -220,16 +210,16 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setCurrentVotes(setupInitialVotes(gameState.players));
     setQuestionText('');
     setIsVoting(true);
-  }, [questionText, currentPlayer, gameState.players]);
+  };
 
-  const toggleVote = useCallback((playerId: string) => {
+  const toggleVote = (playerId: string) => {
     setCurrentVotes((prev) => ({
       ...prev,
       [playerId]: prev[playerId] === 'yes' ? 'no' : 'yes',
     }));
-  }, []);
+  };
 
-  const submitVotes = useCallback(() => {
+  const submitVotes = () => {
     if (!currentQuestion) return;
 
     setGameState((prev) => ({
@@ -241,72 +231,40 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }));
     setCurrentVotes({});
     setIsVoting(false);
-  }, [currentQuestion, currentVotes]);
+  };
 
-  const endGame = useCallback(() => {
+  const endGame = () => {
     // state はそのまま (result 画面で使う)。呼び出し側が router.replace('/result') する。
-  }, []);
+  };
 
-  const value = useMemo<GameContextValue>(
-    () => ({
-      setupPlayers,
-      teamCount,
-      useCustomTopic,
-      customTopics,
-      addPlayer,
-      updatePlayerName,
-      removePlayer,
-      setTeamCount,
-      setUseCustomTopic,
-      updateCustomTopic,
-      gameState,
-      currentPlayer,
-      currentQuestion,
-      assignmentIndex,
-      assignmentRevealed,
-      makimonoContainerWidth,
-      onMakimonoContainerLayout,
-      setAssignmentRevealed,
-      isVoting,
-      questionText,
-      currentVotes,
-      setQuestionText,
-      toggleVote,
-      startGame,
-      restartGame,
-      proceedAssignment,
-      startVoting,
-      submitVotes,
-      endGame,
-    }),
-    [
-      setupPlayers,
-      teamCount,
-      useCustomTopic,
-      customTopics,
-      addPlayer,
-      updatePlayerName,
-      removePlayer,
-      updateCustomTopic,
-      gameState,
-      currentPlayer,
-      currentQuestion,
-      assignmentIndex,
-      assignmentRevealed,
-      makimonoContainerWidth,
-      onMakimonoContainerLayout,
-      isVoting,
-      questionText,
-      currentVotes,
-      toggleVote,
-      startGame,
-      restartGame,
-      proceedAssignment,
-      startVoting,
-      submitVotes,
-      endGame,
-    ],
-  );
+  const value: GameContextValue = {
+    setupPlayers,
+    teamCount,
+    maxTeamCount,
+    useCustomTopic,
+    customTopics,
+    addPlayer,
+    updatePlayerName,
+    removePlayer,
+    setTeamCount,
+    setUseCustomTopic,
+    updateCustomTopic,
+    gameState,
+    currentPlayer,
+    currentQuestion,
+    assignmentIndex,
+    isVoting,
+    questionText,
+    currentVotes,
+    setQuestionText,
+    toggleVote,
+    startGame,
+    restartGame,
+    proceedAssignment,
+    startVoting,
+    submitVotes,
+    endGame,
+  };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }
