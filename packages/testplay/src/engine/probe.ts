@@ -256,6 +256,36 @@ async function probeDirection(
   }
 }
 
+// プレイ性の合格判定(accepted-30 校正で擦り合わせた基準)。
+// - 各方向: 理想質問数が有限なら 予測手数≤14。∞ でも到達率≥0.6 なら
+//   「深いが見つかる」型として 16 手相当で合格(例: 医者×消防士)。
+//   ∞ かつ到達率低は「重い」型として不合格(例: カフェ×銭湯)。
+// - hedge ≤ 0.25(oracle 回答の曖昧さは弁別の実効情報を薄める)
+export type PlayabilityVerdict = { pass: boolean; worstTurns: number | null; reason: string }
+
+export function evaluatePlayability(probe: PairProbe): PlayabilityVerdict {
+  const dirTurns: number[] = []
+  for (const d of probe.directions) {
+    if (d.discriminability.idealQuestions != null) {
+      if (d.predictedTurns == null || d.predictedTurns > 14) {
+        return { pass: false, worstTurns: d.predictedTurns, reason: `${d.targetWord}を当てる方向が遅い(予測${d.predictedTurns}手)` }
+      }
+      dirTurns.push(d.predictedTurns)
+    } else if (d.reachability.inTopRate >= 0.6) {
+      dirTurns.push(16) // 深いが見つかる型
+    } else {
+      return {
+        pass: false,
+        worstTurns: null,
+        reason: `${d.targetWord}を当てる方向が重い(孤立不能かつ到達率${d.reachability.inTopRate})`,
+      }
+    }
+  }
+  const hedge = Math.max(...probe.directions.map((d) => d.answerability.hedgeRate))
+  if (hedge > 0.25) return { pass: false, worstTurns: Math.max(...dirTurns), reason: `回答が曖昧(hedge ${hedge})` }
+  return { pass: true, worstTurns: Math.max(...dirTurns), reason: 'ok' }
+}
+
 export async function probePair(pair: [string, string], cfg: ProbeConfig): Promise<PairProbe> {
   const usage = emptyUsage()
   const call: Call = async (args) => {

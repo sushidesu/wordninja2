@@ -1,0 +1,1007 @@
+{
+  "generatedAt": "2026-07-09",
+  "method": "種ベースco-member生成 → 埋め込みscreen → 概念審査(rubric v4, opus, ≥4) → プレイ性測定(judge probe: 到達性/弁別性/回答安定性, 予測手数≤16)",
+  "source": "logs/2026-07-08-odai100(probe証跡・pipeline.json)",
+  "pairs": [
+    {
+      "pair": [
+        "サラダ",
+        "刺身"
+      ],
+      "category": null,
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "82bc0d1b"
+    },
+    {
+      "pair": [
+        "ロボット",
+        "マネキン"
+      ],
+      "category": null,
+      "rubric": 4,
+      "predictedWorstTurns": 10.9,
+      "topicId": "f1c2f655"
+    },
+    {
+      "pair": [
+        "チーズ",
+        "納豆"
+      ],
+      "category": null,
+      "rubric": 4,
+      "predictedWorstTurns": 16,
+      "topicId": "18373c71"
+    },
+    {
+      "pair": [
+        "カエル",
+        "トンボ"
+      ],
+      "category": null,
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "3f3171aa"
+    },
+    {
+      "pair": [
+        "ヨーグルト",
+        "キムチ"
+      ],
+      "category": null,
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "8c94cc7b"
+    },
+    {
+      "pair": [
+        "タコ",
+        "カタツムリ"
+      ],
+      "category": null,
+      "rubric": 5,
+      "predictedWorstTurns": 10,
+      "topicId": "cc04eaf8"
+    },
+    {
+      "pair": [
+        "ハム",
+        "干物"
+      ],
+      "category": null,
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "31efa419"
+    },
+    {
+      "pair": [
+        "薔薇",
+        "サボテン"
+      ],
+      "category": null,
+      "rubric": 4,
+      "predictedWorstTurns": 13.1,
+      "topicId": "f7e12ed2"
+    },
+    {
+      "pair": [
+        "忍者",
+        "覆面レスラー"
+      ],
+      "category": null,
+      "rubric": 4,
+      "predictedWorstTurns": 9.6,
+      "topicId": "09679ce4"
+    },
+    {
+      "pair": [
+        "天使",
+        "人魚"
+      ],
+      "category": "空想上の存在",
+      "rubric": 4,
+      "predictedWorstTurns": 16,
+      "topicId": "8f0620b5"
+    },
+    {
+      "pair": [
+        "仮面",
+        "付けひげ"
+      ],
+      "category": "変装の小道具",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "350c92c4"
+    },
+    {
+      "pair": [
+        "エアコン",
+        "冷蔵庫"
+      ],
+      "category": "冷媒で冷やす機械",
+      "rubric": 4,
+      "predictedWorstTurns": 16,
+      "topicId": "2a5f22c9"
+    },
+    {
+      "pair": [
+        "炭酸",
+        "入浴剤"
+      ],
+      "category": "気泡を出すもの",
+      "rubric": 4,
+      "predictedWorstTurns": 9.6,
+      "topicId": "c544d6a8"
+    },
+    {
+      "pair": [
+        "神社",
+        "噴水"
+      ],
+      "category": "お金を投げて願う場所",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "ed897689"
+    },
+    {
+      "pair": [
+        "イルカ",
+        "コウモリ"
+      ],
+      "category": "超音波で位置を探る動物",
+      "rubric": 5,
+      "predictedWorstTurns": 10,
+      "topicId": "d4559bcf"
+    },
+    {
+      "pair": [
+        "モーター",
+        "水車"
+      ],
+      "category": "回転して動力を生む装置",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "bdeb834e"
+    },
+    {
+      "pair": [
+        "オレンジ",
+        "にんにく"
+      ],
+      "category": "外皮の中が複数の小片に分かれている",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "12bbc252"
+    },
+    {
+      "pair": [
+        "スピーカー",
+        "太鼓"
+      ],
+      "category": "膜を振動させて音を出す道具",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "98e7021b"
+    },
+    {
+      "pair": [
+        "ゴミ箱",
+        "ポスト"
+      ],
+      "category": "投入口から入れて溜める箱",
+      "rubric": 4,
+      "predictedWorstTurns": 16,
+      "topicId": "622de429"
+    },
+    {
+      "pair": [
+        "コンビニ",
+        "交番"
+      ],
+      "category": "街角にあり年中無休で人がいる施設",
+      "rubric": 4,
+      "predictedWorstTurns": 16,
+      "topicId": "25eeb849"
+    },
+    {
+      "pair": [
+        "寿司",
+        "サンドイッチ"
+      ],
+      "category": "主食に具を組み合わせ手で食べる料理",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "e7777447"
+    },
+    {
+      "pair": [
+        "布団",
+        "ハンモック"
+      ],
+      "category": "横になって眠るための道具",
+      "rubric": 4,
+      "predictedWorstTurns": 13.1,
+      "topicId": "9bc602ed"
+    },
+    {
+      "pair": [
+        "ソープ",
+        "ろうそく"
+      ],
+      "category": "使ううちに擦り減って小さくなる固形物",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "2620fd1c"
+    },
+    {
+      "pair": [
+        "帽子",
+        "テント"
+      ],
+      "category": "布で日差しや雨をしのぐ覆い",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "aa5ce8ca"
+    },
+    {
+      "pair": [
+        "温泉",
+        "石油"
+      ],
+      "category": "地下から湧き出て汲み上げる資源",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "33770129"
+    },
+    {
+      "pair": [
+        "レール",
+        "滑走路"
+      ],
+      "category": "乗り物が走るために整備された細長い道",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "d57e2c90"
+    },
+    {
+      "pair": [
+        "ポケット",
+        "鞘"
+      ],
+      "category": "物を差し込んで収める入れ物",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "cacb9623"
+    },
+    {
+      "pair": [
+        "ライフル",
+        "カメラ"
+      ],
+      "category": "構えて狙いを定め引き金を引いて対象を捉える道具",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "92452def"
+    },
+    {
+      "pair": [
+        "エンジン",
+        "帆"
+      ],
+      "category": "乗り物を進ませる推進力を生む仕組み",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "7e6356b5"
+    },
+    {
+      "pair": [
+        "醤油",
+        "豆腐"
+      ],
+      "category": "大豆を原料にして作る食品",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "d03644c9"
+    },
+    {
+      "pair": [
+        "椅子",
+        "鞍"
+      ],
+      "category": "人が腰を下ろして座るための道具",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "cffdf698"
+    },
+    {
+      "pair": [
+        "パイ",
+        "餃子"
+      ],
+      "category": "生地で具を包んで加熱する料理",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "57cafcf5"
+    },
+    {
+      "pair": [
+        "指輪",
+        "ドーナツ"
+      ],
+      "category": "中心に穴の開いた輪の形",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "2242ecab"
+    },
+    {
+      "pair": [
+        "クマ",
+        "ヘビ"
+      ],
+      "category": "冬眠して冬を越す動物",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "074cdf9d"
+    },
+    {
+      "pair": [
+        "電車",
+        "ジェットコースター"
+      ],
+      "category": "レール上を連結した車両で走る乗り物",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "7dcc2e12"
+    },
+    {
+      "pair": [
+        "バイク",
+        "馬"
+      ],
+      "category": "またがって乗り移動する手段",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "b8f8902c"
+    },
+    {
+      "pair": [
+        "看板",
+        "墓石"
+      ],
+      "category": "文字を刻んで立て、そこに何があるかを知らせる板",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "6039b113"
+    },
+    {
+      "pair": [
+        "キッチン",
+        "理科室"
+      ],
+      "category": "水道・火・作業台で物を混ぜ加熱する部屋",
+      "rubric": 4,
+      "predictedWorstTurns": 8.7,
+      "topicId": "cd301f1c"
+    },
+    {
+      "pair": [
+        "タンク",
+        "ブルドーザー"
+      ],
+      "category": "無限軌道(キャタピラ)で走る乗り物",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "8deecb12"
+    },
+    {
+      "pair": [
+        "ペン",
+        "注射器"
+      ],
+      "category": "細い先端から液体を押し出す道具",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "9002ce4c"
+    },
+    {
+      "pair": [
+        "カニ",
+        "サソリ"
+      ],
+      "category": "ハサミを持つ節足動物",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "3449fad0"
+    },
+    {
+      "pair": [
+        "パンダ",
+        "コアラ"
+      ],
+      "category": "特定の植物の葉だけを食べる動物",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "fd3312b2"
+    },
+    {
+      "pair": [
+        "コーン",
+        "もなか"
+      ],
+      "category": "外側の皮を器にして中身を盛り、皮ごと食べる食品",
+      "rubric": 4,
+      "predictedWorstTurns": 7.2,
+      "topicId": "8af7816f"
+    },
+    {
+      "pair": [
+        "地図",
+        "楽譜"
+      ],
+      "category": "記号を平面に配置し、読み解いて実物(地形・曲)を再現する紙",
+      "rubric": 5,
+      "predictedWorstTurns": 10.7,
+      "topicId": "9740b762"
+    },
+    {
+      "pair": [
+        "チラシ",
+        "ポケットティッシュ"
+      ],
+      "category": "街頭で無料配布される宣伝物",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "81488435"
+    },
+    {
+      "pair": [
+        "プール",
+        "ダム"
+      ],
+      "category": "水を大量にためる人工の設備",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "d0d0e6a9"
+    },
+    {
+      "pair": [
+        "ワイン",
+        "オリーブオイル"
+      ],
+      "category": "果実を搾って造り、産地で味が決まる液体",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "c6c3ecf5"
+    },
+    {
+      "pair": [
+        "ナス",
+        "高野豆腐"
+      ],
+      "category": "スポンジ状で煮汁・油を吸い込む食材",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "66f28385"
+    },
+    {
+      "pair": [
+        "カラス",
+        "アライグマ"
+      ],
+      "category": "人里でゴミを漁る動物",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "7d6ad320"
+    },
+    {
+      "pair": [
+        "パール",
+        "琥珀"
+      ],
+      "category": "生物由来で鉱物でない宝石",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "5d3abbd1"
+    },
+    {
+      "pair": [
+        "サル",
+        "ラッコ"
+      ],
+      "category": "道具を使う動物",
+      "rubric": 5,
+      "predictedWorstTurns": 10,
+      "topicId": "44b3dd52"
+    },
+    {
+      "pair": [
+        "手紙",
+        "のろし"
+      ],
+      "category": "遠くの相手に知らせを届ける手段",
+      "rubric": 5,
+      "predictedWorstTurns": 8,
+      "topicId": "fb6002a7"
+    },
+    {
+      "pair": [
+        "拳銃",
+        "花火"
+      ],
+      "category": "火薬の爆発力で飛ばす道具",
+      "rubric": 5,
+      "predictedWorstTurns": 12,
+      "topicId": "201660fd"
+    },
+    {
+      "pair": [
+        "バーガー",
+        "ドラ焼き"
+      ],
+      "category": "丸い生地2枚で具を挟んだ食べ物",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "b9734048"
+    },
+    {
+      "pair": [
+        "プリン",
+        "茶碗蒸し"
+      ],
+      "category": "卵液を蒸して固めた料理",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "9e785809"
+    },
+    {
+      "pair": [
+        "トラック",
+        "ラクダ"
+      ],
+      "category": "背や荷台に重い荷物を積んで運ぶもの",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "348c2c00"
+    },
+    {
+      "pair": [
+        "ライオン",
+        "クジャク"
+      ],
+      "category": "オスだけが目立つ装飾を持つ動物",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "83f79310"
+    },
+    {
+      "pair": [
+        "天井",
+        "蓋"
+      ],
+      "category": "空間や容器の上面を覆う面",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "71737d35"
+    },
+    {
+      "pair": [
+        "眼鏡",
+        "入れ歯"
+      ],
+      "category": "衰えた体の機能を補う取り外し式の器具",
+      "rubric": 5,
+      "predictedWorstTurns": 16,
+      "topicId": "996c98cb"
+    },
+    {
+      "pair": [
+        "バス",
+        "エレベーター"
+      ],
+      "category": "停留点で停まりながら人を運ぶ箱",
+      "rubric": 4,
+      "predictedWorstTurns": 16,
+      "topicId": "94d91091"
+    },
+    {
+      "pair": [
+        "ボート",
+        "たらい"
+      ],
+      "category": "水に浮かべて中に人が乗る器",
+      "rubric": 4,
+      "predictedWorstTurns": 10.9,
+      "topicId": "d270ad1d"
+    },
+    {
+      "pair": [
+        "空母",
+        "蜂の巣"
+      ],
+      "category": "飛ぶものが発着し帰還する母基地",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "05ddce97"
+    },
+    {
+      "pair": [
+        "ベッド",
+        "トランポリン"
+      ],
+      "category": "内部のバネで弾む面",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "30071cdd"
+    },
+    {
+      "pair": [
+        "ウサギ",
+        "バッタ"
+      ],
+      "category": "後ろ足のバネで跳ねて進む生き物",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "604be4ef"
+    },
+    {
+      "pair": [
+        "紅茶",
+        "だし"
+      ],
+      "category": "乾かした素材を湯に浸して旨みや色を抽出した液体",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "5147c6b4"
+    },
+    {
+      "pair": [
+        "火山",
+        "間欠泉"
+      ],
+      "category": "地中から中身を周期的に噴き上げる地形",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "59ca91db"
+    },
+    {
+      "pair": [
+        "アメ",
+        "氷"
+      ],
+      "category": "口に入れ舐めて溶かし小さくして消す固形物",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "05b1a67e"
+    },
+    {
+      "pair": [
+        "リンゴ",
+        "アボカド"
+      ],
+      "category": "切って空気にふれると果肉が茶色く変色する食べ物",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "1303800a"
+    },
+    {
+      "pair": [
+        "ゴリラ",
+        "キツツキ"
+      ],
+      "category": "体や物を叩いて音を鳴らし合図する動物",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "83a68317"
+    },
+    {
+      "pair": [
+        "クッキー",
+        "せんべい"
+      ],
+      "category": "薄く平たく焼いた固くて割れる一口菓子",
+      "rubric": 4,
+      "predictedWorstTurns": 16,
+      "topicId": "d00c1bc0"
+    },
+    {
+      "pair": [
+        "砂漠",
+        "雪原"
+      ],
+      "category": "一面が同じ色に覆われ目印のない広大な土地",
+      "rubric": 5,
+      "predictedWorstTurns": 12,
+      "topicId": "24ae3a05"
+    },
+    {
+      "pair": [
+        "コイン",
+        "サイコロ"
+      ],
+      "category": "投げて止まった面で偶然に結果を決める小道具",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "c360b52b"
+    },
+    {
+      "pair": [
+        "テーブル",
+        "橋"
+      ],
+      "category": "平らな板を脚や柱で持ち上げて支える構造物",
+      "rubric": 5,
+      "predictedWorstTurns": 12,
+      "topicId": "0fd6adb7"
+    },
+    {
+      "pair": [
+        "パイプ",
+        "トンネル"
+      ],
+      "category": "中が空洞で内部を何かが通り抜ける筒状のもの",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "049f5ad0"
+    },
+    {
+      "pair": [
+        "水着",
+        "スキーウェア"
+      ],
+      "category": "特定の季節スポーツのためだけに着る専用ウェア",
+      "rubric": 4,
+      "predictedWorstTurns": 16,
+      "topicId": "2ba83643"
+    },
+    {
+      "pair": [
+        "流星",
+        "マッチ"
+      ],
+      "category": "摩擦熱で発火し短時間で燃え尽きるもの",
+      "rubric": 5,
+      "predictedWorstTurns": 8,
+      "topicId": "3da4cff9"
+    },
+    {
+      "pair": [
+        "サバ",
+        "ペンギン"
+      ],
+      "category": "背が黒っぽく腹が白い動物",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "ed056c84"
+    },
+    {
+      "pair": [
+        "フォーク",
+        "熊手"
+      ],
+      "category": "柄の先が数本の歯に分かれた道具",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "32a6e23a"
+    },
+    {
+      "pair": [
+        "スキー",
+        "足ひれ"
+      ],
+      "category": "足に装着して雪や水の上を進む平たい道具",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "247583e9"
+    },
+    {
+      "pair": [
+        "時計",
+        "コンパス"
+      ],
+      "category": "円い盤面を針が回って値をさす計器",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "05574612"
+    },
+    {
+      "pair": [
+        "タバコ",
+        "線香"
+      ],
+      "category": "先に火をつけ煙を出しながらくすぶってゆっくり灰になる細い棒",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "c89b4b40"
+    },
+    {
+      "pair": [
+        "パスポート",
+        "通帳"
+      ],
+      "category": "個人情報が記録され窓口で提示・記帳する公式の冊子",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "00796e0d"
+    },
+    {
+      "pair": [
+        "牛乳",
+        "蜂蜜"
+      ],
+      "category": "動物から採取して口にする自然の産物",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "a180e846"
+    },
+    {
+      "pair": [
+        "タイガー",
+        "蜂"
+      ],
+      "category": "黄と黒の縞模様をもつ生き物",
+      "rubric": 4,
+      "predictedWorstTurns": 8.7,
+      "topicId": "aee7ea8e"
+    },
+    {
+      "pair": [
+        "ドア",
+        "引き出し"
+      ],
+      "category": "取っ手を持って開け閉めする可動の仕切り",
+      "rubric": 4,
+      "predictedWorstTurns": 16,
+      "topicId": "99da2b4d"
+    },
+    {
+      "pair": [
+        "バッグ",
+        "バケツ"
+      ],
+      "category": "取っ手を持って中に物を入れて運ぶ入れ物",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "6b4ec267"
+    },
+    {
+      "pair": [
+        "親指",
+        "おしゃぶり"
+      ],
+      "category": "赤ちゃんが口に入れて吸うもの",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "521b97ac"
+    },
+    {
+      "pair": [
+        "ガム",
+        "シャボン玉"
+      ],
+      "category": "息を吹き込んで丸くふくらませるもの",
+      "rubric": 5,
+      "predictedWorstTurns": 10,
+      "topicId": "37040c83"
+    },
+    {
+      "pair": [
+        "風呂",
+        "こたつ"
+      ],
+      "category": "体を入れて温まる家庭の暖房設備",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "4a3627e9"
+    },
+    {
+      "pair": [
+        "バター",
+        "チョコレート"
+      ],
+      "category": "常温では固形だが熱で溶ける食品",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "343c8dd6"
+    },
+    {
+      "pair": [
+        "ツリー",
+        "門松"
+      ],
+      "category": "季節の行事に合わせて飾る植物の飾り物",
+      "rubric": 4,
+      "predictedWorstTurns": 8.7,
+      "topicId": "d3e106dd"
+    },
+    {
+      "pair": [
+        "銀河",
+        "台風"
+      ],
+      "category": "上から見ると渦を巻く巨大なもの",
+      "rubric": 4,
+      "predictedWorstTurns": 14,
+      "topicId": "dc9dcd0d"
+    },
+    {
+      "pair": [
+        "ゴルフ",
+        "ビリヤード"
+      ],
+      "category": "細長い棒で球を突いて穴に入れる遊び",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "d2ca873a"
+    },
+    {
+      "pair": [
+        "ヒゲ",
+        "爪"
+      ],
+      "category": "切っても痛くない伸び続ける体の一部",
+      "rubric": 5,
+      "predictedWorstTurns": 8,
+      "topicId": "80faf9f0"
+    },
+    {
+      "pair": [
+        "ネジ",
+        "電球"
+      ],
+      "category": "らせんの溝を回してねじ込むもの",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "b9c94235"
+    },
+    {
+      "pair": [
+        "ガラス",
+        "障子"
+      ],
+      "category": "光を通して部屋を仕切る建具",
+      "rubric": 4,
+      "predictedWorstTurns": 8.7,
+      "topicId": "871ee52a"
+    },
+    {
+      "pair": [
+        "ネックレス",
+        "マフラー"
+      ],
+      "category": "首にかけて身につけるもの",
+      "rubric": 4,
+      "predictedWorstTurns": 8,
+      "topicId": "ab5274ef"
+    },
+    {
+      "pair": [
+        "スカート",
+        "テーブルクロス"
+      ],
+      "category": "縁から垂れ下がって覆い隠す布",
+      "rubric": 4,
+      "predictedWorstTurns": 12,
+      "topicId": "3b50a65a"
+    },
+    {
+      "pair": [
+        "墓地",
+        "駐車場"
+      ],
+      "category": "区画に分けて一つずつ割り当てる土地",
+      "rubric": 5,
+      "predictedWorstTurns": 10,
+      "topicId": "cdc0f1b5"
+    },
+    {
+      "pair": [
+        "ブーツ",
+        "手袋"
+      ],
+      "category": "手足を筒状に包んで着脱する衣類",
+      "rubric": 4,
+      "predictedWorstTurns": 10,
+      "topicId": "8ec960d1"
+    }
+  ]
+}

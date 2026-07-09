@@ -1,8 +1,9 @@
 // お題の直接測定 CLI。ゲームを回さずに、お題の質を決める量を測って保存する。
 //   pnpm --filter @wordninja/testplay judge '<json>'
 //   入力: { logLabel, pair | pairs, proberModel?, answererModel?, reachSamples?, stabilityQuestions?, maxConcurrency? }
-// 出力: logs/<logLabel>/judge.json(お題ごとの成分と予測手数)
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+// 出力: logs/<logLabel>/probe-<A>×<B>.json(お題単位・完了ごとに書く=部分障害に強い)
+//       logs/<logLabel>/judge.json(集約。再実行時は既存のお題単位ファイルを再利用=レジューム)
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { setMaxConcurrency } from './llm.ts'
 import { validateLabel } from './logger.ts'
@@ -32,7 +33,7 @@ function readInput(): Input {
 const input = readInput()
 validateLabel(input.logLabel ?? '')
 setMaxConcurrency(input.maxConcurrency ?? 8)
-const pairs = input.pairs ?? (input.pair ? [input.pair] : [])
+const pairs = (input.pairs ?? (input.pair ? [input.pair] : [])) as [string, string][]
 if (!pairs.length) {
   console.error('pair / pairs が必要です')
   process.exit(2)
@@ -45,11 +46,23 @@ const cfg: ProbeConfig = {
   stabilityQuestions: input.stabilityQuestions ?? 6,
 }
 
-const results: PairProbe[] = []
-for (const pair of pairs) {
-  console.log(`測定中: ${pair.join('×')}`)
-  const r = await probePair(pair as [string, string], cfg)
-  results.push(r)
+const LOGS_DIR = process.env.LOGS_DIR
+  ? resolve(process.env.LOGS_DIR)
+  : resolve(import.meta.dirname, '..', '..', '..', 'logs')
+const dir = join(LOGS_DIR, input.logLabel)
+mkdirSync(dir, { recursive: true })
+const pairFile = (pair: [string, string]) => join(dir, `probe-${pair[0]}×${pair[1]}.json`)
+
+function readExisting(pair: [string, string]): PairProbe | null {
+  try {
+    return JSON.parse(readFileSync(pairFile(pair), 'utf8')) as PairProbe
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw e
+  }
+}
+
+function report(r: PairProbe): void {
   for (const d of r.directions) {
     console.log(
       `  ${d.seekerWord}側→「${d.targetWord}」: 到達率${d.reachability.inTopRate} MRR${d.reachability.meanReciprocalRank}` +
@@ -60,13 +73,29 @@ for (const pair of pairs) {
   }
 }
 
-const LOGS_DIR = process.env.LOGS_DIR
-  ? resolve(process.env.LOGS_DIR)
-  : resolve(import.meta.dirname, '..', '..', '..', 'logs')
-const dir = join(LOGS_DIR, input.logLabel)
-mkdirSync(dir, { recursive: true })
-const path = join(dir, 'judge.json')
-writeFileSync(path, JSON.stringify({ logLabel: input.logLabel, config: cfg, results }, null, 2))
-console.log(`保存: ${path}`)
-const totalCalls = results.reduce((a, r) => a + r.usage.calls, 0)
-console.log(`総コール ${totalCalls} / 参考コスト $${results.reduce((a, r) => a + r.usage.costUsd, 0).toFixed(2)}`)
+// お題単位で並列(コールの同時実行は llm.ts のセマフォが締める)。
+// 完了ごとにお題単位ファイルへ保存し、再実行時は既存分をスキップ(レジューム)。
+const settled = await Promise.allSettled(
+  pairs.map(async (pair) => {
+    const existing = readExisting(pair)
+    if (existing) {
+      console.log(`スキップ(測定済み): ${pair.join('×')}`)
+      return existing
+    }
+    const r = await probePair(pair, cfg)
+    writeFileSync(pairFile(pair), JSON.stringify(r, null, 2))
+    console.log(`測定完了: ${pair.join('×')}`)
+    report(r)
+    return r
+  }),
+)
+const results: PairProbe[] = []
+for (const [i, s] of settled.entries()) {
+  if (s.status === 'fulfilled') results.push(s.value)
+  else console.error(`✗ ${pairs[i].join('×')} 失敗: ${s.reason}`)
+}
+
+writeFileSync(join(dir, 'judge.json'), JSON.stringify({ logLabel: input.logLabel, config: cfg, results }, null, 2))
+console.log(`保存: ${join(dir, 'judge.json')}(${results.length}/${pairs.length} お題)`)
+const fresh = results.reduce((a, r) => a + r.usage.calls, 0)
+console.log(`総コール ${fresh} / 参考コスト $${results.reduce((a, r) => a + r.usage.costUsd, 0).toFixed(2)}`)

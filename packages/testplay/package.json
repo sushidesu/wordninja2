@@ -5,6 +5,7 @@
   "scripts": {
     "play": "tsx src/cli.ts",
     "judge": "tsx src/judge.ts",
+    "produce": "tsx src/produce.ts",
     "test": "tsx --test src/engine/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
