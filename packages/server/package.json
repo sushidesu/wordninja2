@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:client": "esbuild src/game/client/app.tsx --bundle --minify --format=esm --charset=utf8 --jsx=automatic --jsx-import-source=hono/jsx/dom --outfile=public/game/client.js",
+    "build:client": "esbuild src/game/client/app.tsx --bundle --minify --format=esm --charset=utf8 --jsx=automatic --jsx-import-source=hono/jsx/dom --outfile=public/client.js",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply wordninja-server --local -c wrangler.workshop.jsonc",
-    "db:migrate:remote": "wrangler d1 migrations apply wordninja-server --remote -c wrangler.workshop.jsonc",
+    "db:migrate:local": "wrangler d1 migrations apply wordninja --local -c wrangler.workshop.jsonc",
+    "db:migrate:remote": "wrangler d1 migrations apply wordninja --remote -c wrangler.workshop.jsonc",
     "db:studio": "drizzle-kit studio",
     "deploy:game": "wrangler deploy -c wrangler.game.jsonc",
     "dev": "wrangler dev -c wrangler.game.jsonc",

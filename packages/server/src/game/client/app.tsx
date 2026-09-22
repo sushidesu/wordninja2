@@ -7,12 +7,12 @@ import type { Action, Answer, PlayerView } from "@wordninja/rules";
 
 // 型だけを借りる(実行時の zod は持ち込まない)。送る値の形はサーバー側で検証される。
 
-/** 招待リンクは /game/<部屋コード>。アドレスバーがそのまま共有できる形にする。 */
-const ROOM_PATH = /^\/game\/([A-Z0-9]+)$/;
+/** 招待リンクは /rooms/<部屋コード>。アドレスバーがそのまま共有できる形にする。 */
+const ROOM_PATH = /^\/rooms\/([A-Z0-9]+)$/;
 const codeInUrl = (): string | null => ROOM_PATH.exec(location.pathname)?.[1] ?? null;
 const showRoomInUrl = (code: string | null) =>
-  history.replaceState(null, "", code === null ? "/game" : `/game/${code}`);
-const inviteUrl = (code: string) => `${location.origin}/game/${code}`;
+  history.replaceState(null, "", code === null ? "/" : `/rooms/${code}`);
+const inviteUrl = (code: string) => `${location.origin}/rooms/${code}`;
 
 const ANSWER_LABELS: Record<Answer, string> = {
   yes: "はい",
@@ -35,7 +35,7 @@ const useRoom = (code: string, player: string) => {
   useEffect(() => {
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(
-      `${proto}://${location.host}/api/game/rooms/${code}/ws?player=${encodeURIComponent(player)}`,
+      `${proto}://${location.host}/api/rooms/${code}/ws?player=${encodeURIComponent(player)}`,
     );
     ws.addEventListener("message", (e) => {
       const msg = JSON.parse(e.data as string);
@@ -68,7 +68,7 @@ const Entry = ({
   const ready = player.trim().length > 0;
 
   const create = async () => {
-    const res = await fetch("/api/game/rooms", { method: "POST" });
+    const res = await fetch("/api/rooms", { method: "POST" });
     const { code: newCode } = (await res.json()) as { code: string };
     onEnter(newCode, player.trim(), open ? { teamCount, maxPlayers } : null);
   };
@@ -183,7 +183,7 @@ const Lobby = ({
   const isHost = view.host === player;
   useEffect(() => {
     if (!isHost) return;
-    fetch(`/api/game/topics/available?words=${view.teamCount}`)
+    fetch(`/api/topics/available?words=${view.teamCount}`)
       .then((r) => r.json() as Promise<{ count: number }>)
       .then(({ count }) => {
         setStock(count);

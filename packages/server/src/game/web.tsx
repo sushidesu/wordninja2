@@ -83,6 +83,6 @@ export const GamePage = () =>
       </head>
       <body>
         <div id="root"></div>
-        <script type="module" src="/game/client.js"></script>
+        <script type="module" src="/client.js"></script>
       </body>
     </html>`;

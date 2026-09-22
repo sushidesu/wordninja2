@@ -1,9 +1,9 @@
 // 公開する Worker。エンドユーザーが触れるのはここだけ。
 {
-  "name": "wordninja-game",
+  "name": "wordninja",
   "main": "src/game-worker.ts",
   "compatibility_date": "2026-06-27",
-  // クライアントのバンドル(public/game/client.js)を配る。
+  // クライアントのバンドル(public/client.js)を配る。
   "assets": {
     "directory": "./public",
   },
@@ -26,7 +26,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "wordninja-server",
+      "database_name": "wordninja",
       "database_id": "local",
       "migrations_dir": "drizzle",
     },

@@ -10,11 +10,11 @@ type Bindings = { DB: D1Database; ROOM: DurableObjectNamespace<RoomDO> };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-app.route("/api/game", game);
+app.route("/api", game);
 
-app.get("/game", (c) => c.html(GamePage()));
+app.get("/", (c) => c.html(GamePage()));
 // 招待リンク。部屋コードは URL に載せるだけで、返すページは同じ。
-app.get("/game/:code", (c) => c.html(GamePage()));
+app.get("/rooms/:code", (c) => c.html(GamePage()));
 
 export { RoomDO } from "./game/room-do";
 

@@ -10,7 +10,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "wordninja-server",
+      "database_name": "wordninja",
       "database_id": "local",
       "migrations_dir": "drizzle",
     },
