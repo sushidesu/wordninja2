@@ -7,7 +7,7 @@ import {
   NEAR_THRESHOLD,
   WORDS_PER_TOPIC,
 } from "./config";
-import { createDb } from "./db";
+import { createDb } from "../db";
 import { cosineDistance } from "./distance";
 import * as repo from "./repo";
 

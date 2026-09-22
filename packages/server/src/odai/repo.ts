@@ -1,7 +1,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { FOLD, normalizeRating, sourceKind } from "./config";
 import { cosineDistance } from "./distance";
-import type { Db } from "./db";
+import type { Db } from "../db";
 import { evaluations, topics, wordEmbeddings, words } from "./schema";
 
 export type Evaluation = {

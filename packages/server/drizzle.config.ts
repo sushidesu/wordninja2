@@ -18,7 +18,7 @@ const localD1 = findLocalD1();
 // generate はスキーマと out があれば動く。
 // db:studio はローカル D1 ファイルに dbCredentials 経由で接続する。
 export default defineConfig({
-  schema: "./src/schema.ts",
+  schema: "./src/**/schema.ts",
   out: "./drizzle",
   dialect: "sqlite",
   ...(localD1 ? { dbCredentials: { url: `file:${localD1}` } } : {}),
