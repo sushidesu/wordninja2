@@ -319,26 +319,20 @@ const Lobby = ({
 };
 
 /** 部屋設定。ホストのみ。建て直さずにいつでも変えられる。 */
-/** 招待リンクを共有する。共有シートが無い環境ではクリップボードへ。 */
-const Invite = ({ code }: { code: string }) => {
-  const [copied, setCopied] = useState(false);
-  const canShare = typeof navigator.share === "function";
-  const share = async () => {
-    const url = inviteUrl(code);
-    if (canShare) {
-      await navigator.share({ title: "ワードニンジャ", text: "一緒に遊びませんか", url });
-      return;
+/** 招待リンクを Web Share API で共有する。 */
+const Invite = ({ code }: { code: string }) => (
+  <button
+    onClick={() =>
+      navigator.share({
+        title: "ワードニンジャ",
+        text: "一緒に遊びませんか",
+        url: inviteUrl(code),
+      })
     }
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
-  };
-  return (
-    <button onClick={share}>
-      {copied ? "コピーしました" : canShare ? "招待" : "リンクをコピー"}
-    </button>
-  );
-};
+  >
+    招待
+  </button>
+);
 
 const Settings = ({
   view,
