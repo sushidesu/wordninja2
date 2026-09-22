@@ -337,7 +337,7 @@ const Invite = ({ code }: { code: string }) => {
   const share = async () => {
     const url = inviteUrl(code);
     if (canShare) {
-      await navigator.share({ title: "ワードニンジャ", text: "一緒に遊びませんか", url });
+      await navigator.share({ title: "ワードニンジャ", url });
       return;
     }
     await navigator.clipboard.writeText(url);
