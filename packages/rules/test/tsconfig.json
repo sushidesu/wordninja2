@@ -1,0 +1,17 @@
+{
+  // テストだけが Node 上で動く。ライブラリ本体(../src)は Workers とブラウザで
+  // 動くため ambient な型を持たせない。ここを分けないと本体から Node の
+  // グローバルが見えてしまい、使っても型検査を通ってしまう。
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "types": ["node"]
+  },
+  "include": [".", "../src"]
+}

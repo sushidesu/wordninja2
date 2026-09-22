@@ -8,7 +8,8 @@ export type Phase = z.infer<typeof phaseSchema>;
 
 // 2値に潰さないのは、対象が本質的に複数の顔を持つ場合に
 // どちらかへ倒すと語の正体を誤って伝えるため。
-export const answerSchema = z.enum(["yes", "no", "partly", "unknown"]);
+// correct は「質問がお題そのものだった」= ゲームの終了条件。
+export const answerSchema = z.enum(["yes", "no", "partly", "unknown", "correct"]);
 export type Answer = z.infer<typeof answerSchema>;
 
 export const playerIdSchema = z.string().min(1);
@@ -21,15 +22,6 @@ export const questionSchema = z.object({
 });
 export type Question = z.infer<typeof questionSchema>;
 
-// 推測は公開の発言。text は申告であって割当ではない。
-export const guessSchema = z.object({
-  guesser: playerIdSchema,
-  target: playerIdSchema,
-  text: z.string(),
-  verdict: z.boolean().nullable(), // null は未判定
-});
-export type Guess = z.infer<typeof guessSchema>;
-
 export const wordAssignmentSchema = z.object({
   player: playerIdSchema,
   word: z.string().min(1),
@@ -40,32 +32,45 @@ export type WordAssignment = z.infer<typeof wordAssignmentSchema>;
 export const playerViewSchema = z.object({
   phase: phaseSchema,
   players: z.array(playerIdSchema),
+  /** 語を持たず、質問も回答もしない。定員に数えない。 */
+  spectators: z.array(playerIdSchema),
+  /** 最初の参加者。お題の設定と部屋設定を行える唯一の人。 */
+  host: playerIdSchema.nullable(),
+  /** 次に質問する人。配布前は null。 */
+  turn: playerIdSchema.nullable(),
+  teamCount: z.int(),
+  maxPlayers: z.int(),
   /** 自分の語。他人の語はここに入らない。 */
   myWord: z.string().nullable(),
   questions: z.array(questionSchema),
-  guesses: z.array(guessSchema),
   /** 答え合わせのときだけ割当が開く。 */
   revealed: z.array(wordAssignmentSchema).nullable(),
 });
 export type PlayerView = z.infer<typeof playerViewSchema>;
 
-// 質問・回答・推測・判定はすべて任意。同席プレイでは使われず、
-// 1人プレイは「相手が質問してこない2人対戦」として成立する。
+// できるのは質問だけ。「当てる」専用の操作は無く、質問がお題そのものだった時に
+// ゲームが終わる(終了は答え合わせへの移動として記録される)。
+// 質問と回答は任意で、同席プレイでは使われない。
 export const actionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("join"), player: playerIdSchema }),
+  z.object({ type: z.literal("spectate"), player: playerIdSchema }),
   z.object({ type: z.literal("leave"), player: playerIdSchema }),
-  z.object({ type: z.literal("setTeamCount"), count: z.int().min(2).max(4) }),
-  z.object({ type: z.literal("deal"), words: z.array(wordAssignmentSchema) }),
+  z.object({
+    type: z.literal("configure"),
+    by: playerIdSchema,
+    teamCount: z.int().min(2).max(4),
+    maxPlayers: z.int().min(2).max(16),
+  }),
+  z.object({
+    type: z.literal("deal"),
+    by: playerIdSchema,
+    words: z.array(wordAssignmentSchema),
+    /** 最初の質問者。乱択はクライアント側(規則は純関数に保つ)。 */
+    firstAsker: playerIdSchema,
+  }),
   z.object({ type: z.literal("goto"), phase: phaseSchema }),
   z.object({ type: z.literal("ask"), asker: playerIdSchema, text: z.string().min(1) }),
   z.object({ type: z.literal("answer"), player: playerIdSchema, value: answerSchema }),
-  z.object({
-    type: z.literal("guess"),
-    guesser: playerIdSchema,
-    target: playerIdSchema,
-    text: z.string().min(1),
-  }),
-  z.object({ type: z.literal("judge"), judger: playerIdSchema, correct: z.boolean() }),
 ]);
 export type Action = z.infer<typeof actionSchema>;
 
