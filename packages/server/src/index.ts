@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { api } from "./odai/api";
-import { isValidRating, WORDS_PER_TOPIC } from "./odai/config";
+import { api } from "./topics/api";
+import { isValidRating, WORDS_PER_TOPIC } from "./topics/config";
 import { createDb } from "./db";
-import * as repo from "./odai/repo";
-import { ReviewPage, TopicDetailPage, TopicsListPage } from "./odai/views";
+import * as repo from "./topics/repo";
+import { ReviewPage, TopicDetailPage, TopicsListPage } from "./topics/views";
 
 type Bindings = { DB: D1Database; AI: Ai };
 
