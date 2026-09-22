@@ -6,10 +6,16 @@ Yes/No 質問から当てる。サーバーが権威として持つ状態・遷�
 壊れてはいけない性質を定理として固定する。実装(TypeScript)とは独立した検証専用のモデル。
 
 設計上の要点:
-- チームは「同じ語を持つプレイヤーの集合」として導出する。主役の概念ではないので状態に持たない。
-- 質問・回答・推測は**すべて任意**。同席プレイでは口頭で進行し、記録が空のまま答え合わせに至る。
-  1人プレイは「相手が質問してこない2人対戦」であり、専用の機構を持たない。
-- 推測の正誤は**語の持ち主が判定する**。サーバーは判定しない(LLM に依存しない)。
+- チームは「同じ語を持つプレイヤーの集合」として導出する。状態には持たない。
+- **できるのは質問だけ**。「当てる」専用の操作は無い。質問がお題そのものだった時、
+  語の持ち主が `correct` と答え、それがゲームの終了になる。
+- 質問はラウンドロビン。最初の質問者は配布時に決める(乱択はモデルの外)。
+  質問すると手番が次へ進む。回答を待たないのは、回答が任意で待つと詰むため。
+- 質問に対象者は無い。**質問者以外の全員が自分の語について答える**(質問者は答えない)。
+- 質問と回答は任意。同席プレイでは口頭で進行し、記録が空のまま答え合わせに至る。
+- 観戦者は語を持たず、質問も回答もしない。定員にも数えない。
+- 部屋を建てた人(最初の参加者)がホスト。配布と部屋設定はホストだけが行う。
+  部屋設定はいつでも変えられる(建て直さずに人数やルールを変えるため)。
 - 順序制御は最低限。配布を経ていないフェーズへ行けないことだけを縛る。
 -/
 
@@ -26,64 +32,74 @@ inductive Phase where
   deriving DecidableEq, BEq, Repr
 
 /-- 回答。2値に潰さないのは、対象が本質的に複数の顔を持つ場合に
-    どちらかへ倒すと語の正体を誤って伝えるため(oracle の実測由来)。 -/
+    どちらかへ倒すと語の正体を誤って伝えるため。
+    `correct` は「質問がお題そのものだった」= ゲームの終了条件。 -/
 inductive Answer where
   | yes
   | no
   | partly
   | unknown
+  | correct
   deriving DecidableEq, BEq, Repr
 
-/-- 質問と、各プレイヤーが自分の語について返した回答。 -/
 structure Question where
   asker : PlayerId
   text : String
   answers : List (PlayerId × Answer)
   deriving Repr
 
-/-- 推測。`target` の語を当てようとする申告で、正誤は持ち主が判定する。 -/
-structure Guess where
-  guesser : PlayerId
-  target : PlayerId
-  text : Word
-  /-- 未判定は none。 -/
-  verdict : Option Bool
-  deriving Repr
-
 /-- 権威状態。サーバーだけが保持し、ワイヤには乗らない。 -/
 structure Room where
   phase : Phase
   players : List PlayerId
+  /-- 語を持たず、質問も回答もしない。定員に数えない。 -/
+  spectators : List PlayerId
+  /-- 最初の参加者。配布と部屋設定を行える唯一の人。未参加なら none。 -/
+  host : Option PlayerId
+  /-- 次に質問する人。配布前は none。 -/
+  turn : Option PlayerId
   teamCount : Nat
+  maxPlayers : Nat
   /-- 配布結果。未配布なら空。 -/
   words : List (PlayerId × Word)
   /-- 新しいものが先頭。 -/
   questions : List Question
-  /-- 新しいものが先頭。 -/
-  guesses : List Guess
   deriving Repr
 
 /-- 1プレイヤーに見えるもの。ワイヤに乗るのはこの型だけ。 -/
 structure PlayerView where
   phase : Phase
   players : List PlayerId
-  /-- 自分の語。 -/
+  spectators : List PlayerId
+  host : Option PlayerId
+  turn : Option PlayerId
+  teamCount : Nat
+  maxPlayers : Nat
+  /-- 自分の語。観戦者は none。 -/
   myWord : Option Word
   questions : List Question
-  /-- 推測は公開の発言なので全員に見える。中の語は申告であって割当ではない。 -/
-  guesses : List Guess
   /-- 答え合わせのときだけ割当が開く。それ以外は none。 -/
   revealed : Option (List (PlayerId × Word))
   deriving Repr
 
 def emptyRoom : Room :=
-  { phase := Phase.lobby, players := [], teamCount := 2,
-    words := [], questions := [], guesses := [] }
+  { phase := Phase.lobby, players := [], spectators := [], host := none, turn := none,
+    teamCount := 2, maxPlayers := 8, words := [], questions := [] }
 
 /-- 重複を落とす。語の種類数を数えるために使う。 -/
 def nub : List Word → List Word
   | [] => []
   | w :: ws => if ws.contains w then nub ws else w :: nub ws
+
+/-- players を輪と見なして cur の次の人を返す。cur が居なければ先頭。 -/
+private def cycleFrom (first : List PlayerId) : List PlayerId → PlayerId → Option PlayerId
+  | [], _ => first.head?
+  | x :: xs, cur =>
+      if x = cur then (match xs with | [] => first.head? | y :: _ => some y)
+      else cycleFrom first xs cur
+
+def nextAfter (players : List PlayerId) (cur : PlayerId) : Option PlayerId :=
+  cycleFrom players players cur
 
 /-- 配布が健全か: 参加者全員にちょうど1つ語が付き、語の種類がちょうどチーム数。 -/
 def ValidDeal (players : List PlayerId) (teamCount : Nat)
@@ -101,81 +117,82 @@ def myWord (r : Room) (p : PlayerId) : Option Word :=
 def viewFor (r : Room) (p : PlayerId) : PlayerView :=
   { phase := r.phase
     players := r.players
+    spectators := r.spectators
+    host := r.host
+    turn := r.turn
+    teamCount := r.teamCount
+    maxPlayers := r.maxPlayers
     myWord := myWord r p
     questions := r.questions
-    guesses := r.guesses
     revealed := if r.phase = Phase.reveal then some r.words else none }
 
 inductive Action where
   | join (p : PlayerId)
+  | spectate (p : PlayerId)
   | leave (p : PlayerId)
-  | setTeamCount (n : Nat)
-  /-- 配布。ここだけがお題を確定させる。配り方自体はモデル外(非決定的な入力)。 -/
-  | deal (words : List (PlayerId × Word))
-  /-- 任意のフェーズへ移る。最低限の順序制御はここに集約。 -/
+  /-- 部屋設定。ホストのみ。いつでも変えられる。 -/
+  | configure (by_ : PlayerId) (teamCount : Nat) (maxPlayers : Nat)
+  /-- 配布。ホストのみ。配り方も最初の質問者もモデル外(非決定的な入力)。 -/
+  | deal (by_ : PlayerId) (words : List (PlayerId × Word)) (firstAsker : PlayerId)
   | goto (ph : Phase)
-  /-- 任意。同席プレイでは使われない。 -/
+  /-- 手番の人だけが質問できる。質問すると手番が次へ進む。 -/
   | ask (asker : PlayerId) (text : String)
-  /-- 任意。自分の語について答える。 -/
+  /-- 任意。自分の語について答える。質問者は答えない。 -/
   | answer (p : PlayerId) (value : Answer)
-  /-- 任意。target の語を当てる申告。 -/
-  | guess (guesser : PlayerId) (target : PlayerId) (text : Word)
-  /-- 最新の未判定の推測を、語の持ち主が判定する。 -/
-  | judge (judger : PlayerId) (correct : Bool)
   deriving Repr
 
 /-- 遷移。`none` は拒否。 -/
 def step (r : Room) : Action → Option Room
   | .join p =>
-      if r.phase = Phase.lobby ∧ p ∉ r.players then
-        some { r with players := r.players ++ [p] }
+      -- 最初の参加者がホストになる。定員を超えては入れない。観戦者からの移行も兼ねる。
+      if r.phase = Phase.lobby ∧ p ∉ r.players ∧ r.players.length < r.maxPlayers then
+        some { r with
+          players := r.players ++ [p]
+          spectators := r.spectators.filter (fun q => q != p)
+          host := if r.host.isNone then some p else r.host }
+      else none
+  | .spectate p =>
+      -- 観戦はいつでも。プレイヤーのまま観戦はできない(語の整合が崩れるため)。
+      if p ∉ r.players ∧ p ∉ r.spectators then
+        some { r with spectators := r.spectators ++ [p] }
       else none
   | .leave p =>
-      if p ∈ r.players then
-        some { r with players := r.players.filter (fun q => q != p) }
+      if p ∈ r.players ∨ p ∈ r.spectators then
+        some { r with
+          players := r.players.filter (fun q => q != p)
+          spectators := r.spectators.filter (fun q => q != p) }
       else none
-  | .setTeamCount n =>
-      if r.phase = Phase.lobby ∧ 2 ≤ n ∧ n ≤ 4 then
-        some { r with teamCount := n }
+  | .configure by_ tc mp =>
+      if r.host = some by_ ∧ 2 ≤ tc ∧ tc ≤ 4 ∧ r.players.length ≤ mp then
+        some { r with teamCount := tc, maxPlayers := mp }
       else none
-  | .deal ws =>
-      if r.phase = Phase.lobby ∧ ValidDeal r.players r.teamCount ws then
-        some { r with phase := Phase.assignment, words := ws }
+  | .deal by_ ws first =>
+      if r.phase = Phase.lobby ∧ r.host = some by_ ∧ first ∈ r.players
+          ∧ ValidDeal r.players r.teamCount ws then
+        some { r with phase := Phase.assignment, words := ws, turn := some first }
       else none
   | .goto ph =>
-      -- lobby へ戻るときは記録を捨てる。配布前に lobby より先へは行けない。
       if ph = Phase.lobby then
-        some { r with phase := Phase.lobby, words := [], questions := [], guesses := [] }
+        some { r with phase := Phase.lobby, words := [], questions := [], turn := none }
       else if r.words ≠ [] then
         some { r with phase := ph }
       else none
   | .ask asker text =>
-      if r.phase = Phase.playing ∧ asker ∈ r.players then
-        some { r with questions :=
-          { asker := asker, text := text, answers := [] } :: r.questions }
+      -- 手番の人だけ。質問すると手番が次へ進む(回答は任意なので待たない)。
+      if r.phase = Phase.playing ∧ r.turn = some asker then
+        some { r with
+          questions := { asker := asker, text := text, answers := [] } :: r.questions
+          turn := nextAfter r.players asker }
       else none
   | .answer p value =>
       match r.phase, r.questions with
       | Phase.playing, q :: qs =>
-          if p ∈ r.players ∧ p ∉ q.answers.map Prod.fst then
-            some { r with questions := { q with answers := (p, value) :: q.answers } :: qs }
-          else none
-      | _, _ => none
-  | .guess guesser target text =>
-      -- 自分と同じ語の相手には推測しない(当てる対象が自分の語になってしまう)。
-      if r.phase = Phase.playing ∧ guesser ∈ r.players ∧ target ∈ r.players
-          ∧ (myWord r guesser).isSome = true ∧ (myWord r target).isSome = true
-          ∧ myWord r guesser ≠ myWord r target then
-        some { r with guesses :=
-          { guesser := guesser, target := target, text := text, verdict := none } :: r.guesses }
-      else none
-  | .judge judger correct =>
-      match r.phase, r.guesses with
-      | Phase.playing, g :: gs =>
-          -- 判定できるのは語の持ち主だけ。
-          if g.verdict = none ∧ (myWord r judger).isSome = true
-              ∧ myWord r judger = myWord r g.target then
-            some { r with guesses := { g with verdict := some correct } :: gs }
+          -- 質問者以外の全員が答える。観戦者は答えない。
+          if p ∈ r.players ∧ p ≠ q.asker ∧ p ∉ q.answers.map Prod.fst then
+            some { r with
+              questions := { q with answers := (p, value) :: q.answers } :: qs
+              -- 質問がお題そのものだったなら、そこでゲームが終わる。
+              phase := if value = Answer.correct then Phase.reveal else Phase.playing }
           else none
       | _, _ => none
 
