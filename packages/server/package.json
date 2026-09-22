@@ -1,5 +1,5 @@
 {
-  "name": "@wordninja/topics",
+  "name": "@wordninja/server",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -7,8 +7,8 @@
     "dev": "wrangler dev",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate:local": "wrangler d1 migrations apply wordninja-topics --local",
-    "db:migrate:remote": "wrangler d1 migrations apply wordninja-topics --remote",
+    "db:migrate:local": "wrangler d1 migrations apply wordninja-server --local",
+    "db:migrate:remote": "wrangler d1 migrations apply wordninja-server --remote",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

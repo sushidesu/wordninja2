@@ -9,7 +9,7 @@ import { addUsage, callLlm, emptyUsage } from '../llm.ts'
 import type { LlmUsage } from '../types.ts'
 import { SYSTEM_PROMPT } from './game.ts'
 
-// 人ラベル付き事例(出典: packages/topics/scripts/seed-fewshot.py = rubric v4 の蓄積ラベル)
+// 人ラベル付き事例(出典: packages/server/scripts/seed-fewshot.py = rubric v4 の蓄積ラベル)
 export const RATED_5: [string, string][] = [
   ['ペンギン', 'ダチョウ'], ['医者', '消防士'], ['桜', 'ひまわり'], ['お城', '灯台'],
   ['自転車', 'ヘリコプター'], ['ろうそく', '氷'], ['雪だるま', 'かかし'],

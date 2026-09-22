@@ -1,5 +1,5 @@
 {
-  "name": "wordninja-topics",
+  "name": "wordninja-server",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-27",
   "ai": {
@@ -8,7 +8,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "wordninja-topics",
+      "database_name": "wordninja-server",
       "database_id": "local",
       "migrations_dir": "drizzle",
     },
