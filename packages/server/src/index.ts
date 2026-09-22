@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { game } from "./game/api";
+import { GamePage } from "./game/web";
 import type { RoomDO } from "./game/room-do";
 import { api } from "./topics/api";
 import { isValidRating, WORDS_PER_TOPIC } from "./topics/config";
@@ -22,6 +23,8 @@ const field = (body: Record<string, string | File>, key: string): string =>
 
 app.route("/api", api);
 app.route("/api/game", game);
+
+app.get("/game", (c) => c.html(GamePage()));
 
 // ---- 人間用 Web UI（SSR + フォームPOST。/review は人間用クライアント）----
 

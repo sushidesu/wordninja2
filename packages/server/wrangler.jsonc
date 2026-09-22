@@ -2,6 +2,10 @@
   "name": "wordninja-server",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-27",
+  // クライアントのバンドル(public/game/client.js)を配る。
+  "assets": {
+    "directory": "./public",
+  },
   "ai": {
     "binding": "AI",
   },
