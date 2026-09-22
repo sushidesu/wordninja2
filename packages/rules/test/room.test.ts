@@ -192,6 +192,30 @@ test("質問者は答えない: 質問した本人の回答は拒否される", 
   assert.deepEqual(answered?.questions[0]?.answers, [{ player: "b", value: "yes" }]);
 });
 
+test("確認: 配布直後のプレイヤーだけが確認でき、フェーズは動かない", () => {
+  const room = dealt();
+  assert.equal(room.phase, "assignment");
+  assert.equal(applyAction(room, { type: "confirm", player: "s" }), null);
+  const one = applyAction(room, { type: "confirm", player: "a" })!;
+  assert.deepEqual(one.confirmed, ["a"]);
+  assert.equal(one.phase, "assignment");
+  // 二重に確認はできない
+  assert.equal(applyAction(one, { type: "confirm", player: "a" }), null);
+  // 全員が確認しても規則は勝手に進めない
+  const all = applyAction(one, { type: "confirm", player: "b" })!;
+  assert.deepEqual(all.confirmed, ["a", "b"]);
+  assert.equal(all.phase, "assignment");
+});
+
+test("確認: 配り直すと白紙に戻る", () => {
+  const room = run(dealt(), [
+    { type: "confirm", player: "a" },
+    { type: "goto", phase: "lobby" },
+    { type: "deal", by: "a", words: WORDS, firstAsker: "a" },
+  ]);
+  assert.deepEqual(room.confirmed, []);
+});
+
 test("ワンクッション: 正解が出ても答えは開かず、質問だけが終わる", () => {
   const room = run(dealt(), [
     { type: "goto", phase: "playing" },

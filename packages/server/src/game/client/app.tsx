@@ -287,6 +287,55 @@ const Settings = ({
   );
 };
 
+/** 配布フェーズ。自分の語を見て確認する。全員揃うと Room が自動で質問へ進める。 */
+const Assignment = ({
+  view,
+  player,
+  conn,
+}: {
+  view: PlayerView;
+  player: string;
+  conn: Connection;
+}) => {
+  const [seen, setSeen] = useState(false);
+  const done = view.confirmed.includes(player);
+  const isPlayer = view.players.includes(player);
+  return (
+    <div>
+      <div class="card">
+        <h2>あなたのお題</h2>
+        <div class="word">{seen ? (view.myWord ?? "—") : "● ● ●"}</div>
+        <div class="row" style="justify-content:center">
+          <button onClick={() => setSeen(!seen)}>{seen ? "隠す" : "見る"}</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>
+          確認 {view.confirmed.length} / {view.players.length}
+        </h2>
+        {view.players.map((p) => (
+          <span class={view.confirmed.includes(p) ? "chip host" : "chip"}>
+            {p}
+            {view.confirmed.includes(p) ? " ✓" : ""}
+          </span>
+        ))}
+        {isPlayer && (
+          <div class="row" style="margin-top:12px">
+            <button
+              class="primary"
+              disabled={done || !seen}
+              onClick={() => conn.send({ type: "confirm", player })}
+            >
+              {done ? "確認済み" : "確認した"}
+            </button>
+            {!seen && !done && <span class="muted">お題を見てください</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const MyWord = ({ word }: { word: string | null }) => {
   const [shown, setShown] = useState(false);
   return (
@@ -459,6 +508,23 @@ const Room = ({
     setup.current = true;
   }, [view]);
 
+  // 全員が確認したら質問へ進める。規則は自動遷移しないので、判断はここでする。
+  // 送るのはホストだけ(全員が送っても冪等だが、無駄な往復を増やさない)。
+  const advanced = useRef(false);
+  useEffect(() => {
+    if (view === null) return;
+    if (view.phase !== "assignment") {
+      advanced.current = false;
+      return;
+    }
+    const allDone =
+      view.players.length > 0 && view.players.every((p) => view.confirmed.includes(p));
+    if (allDone && view.host === player && !advanced.current) {
+      advanced.current = true;
+      conn.send({ type: "goto", phase: "playing" });
+    }
+  }, [view]);
+
   if (view === null) return <div class="card">接続中…</div>;
 
   const phases = ["lobby", "assignment", "playing", "reveal"] as const;
@@ -475,7 +541,12 @@ const Room = ({
       </div>
 
       {view.phase === "lobby" && <Lobby view={view} player={player} conn={conn} />}
-      {view.phase !== "lobby" && <MyWord word={view.myWord} />}
+      {view.phase === "assignment" && (
+        <Assignment view={view} player={player} conn={conn} />
+      )}
+      {(view.phase === "playing" || view.phase === "reveal") && (
+        <MyWord word={view.myWord} />
+      )}
       {view.phase === "playing" && <Playing view={view} player={player} conn={conn} />}
       {view.phase === "reveal" && <Reveal view={view} />}
 

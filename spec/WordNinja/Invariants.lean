@@ -129,6 +129,33 @@ theorem no_ask_when_solved {r : Room} {p : PlayerId} {t : String}
     (hs : solved r = true) : step r (Action.ask p t) = none := by
   simp [step, hs]
 
+/-- **確認**: 確認できるのは配布直後(assignment)のプレイヤーだけ。 -/
+theorem confirm_requires_assignment {r r' : Room} {p : PlayerId}
+    (h : step r (Action.confirm p) = some r') :
+    r.phase = Phase.assignment ∧ p ∈ r.players := by
+  simp only [step] at h
+  split at h
+  · rename_i hc; exact ⟨hc.1, hc.2.1⟩
+  · simp at h
+
+/-- **確認はフェーズを動かさない**: 全員が確認しても規則は勝手に進めない。
+    進めるかどうかはクライアントが決める。 -/
+theorem confirm_never_changes_phase {r r' : Room} {p : PlayerId}
+    (h : step r (Action.confirm p) = some r') : r'.phase = r.phase := by
+  simp only [step] at h
+  split at h
+  · have hr := Option.some.inj h; subst hr; simp
+  · simp at h
+
+/-- **配り直し**: 配布すると確認は白紙に戻る。 -/
+theorem deal_clears_confirmations {r r' : Room} {by_ first : PlayerId}
+    {ws : List (PlayerId × Word)}
+    (h : step r (Action.deal by_ ws first) = some r') : r'.confirmed = [] := by
+  simp only [step] at h
+  split at h
+  · have hr := Option.some.inj h; subst hr; simp
+  · simp at h
+
 /-- **同席プレイの成立**: 質問を記録せずに答え合わせへ到達できる。
     口頭で進行するプレイがサーバーの進行モデルを通る。 -/
 theorem verbal_play_reaches_reveal :

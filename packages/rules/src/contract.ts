@@ -40,6 +40,8 @@ export const playerViewSchema = z.object({
   turn: playerIdSchema.nullable(),
   teamCount: z.int(),
   maxPlayers: z.int(),
+  /** 自分のお題を確認し終えた人。配布のたびに空に戻る。 */
+  confirmed: z.array(playerIdSchema),
   /** 正解が出たか(導出値)。 */
   solved: z.boolean(),
   /** 自分の語。他人の語はここに入らない。 */
@@ -71,6 +73,7 @@ export const actionSchema = z.discriminatedUnion("type", [
     firstAsker: playerIdSchema,
   }),
   z.object({ type: z.literal("goto"), phase: phaseSchema }),
+  z.object({ type: z.literal("confirm"), player: playerIdSchema }),
   z.object({ type: z.literal("ask"), asker: playerIdSchema, text: z.string().min(1) }),
   z.object({ type: z.literal("answer"), player: playerIdSchema, value: answerSchema }),
 ]);

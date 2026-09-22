@@ -19,6 +19,9 @@ Yes/No 質問から当てる。サーバーが権威として持つ状態・遷�
 - 部屋を建てた人(最初の参加者)がホスト。配布と部屋設定はホストだけが行う。
   部屋設定はいつでも変えられる(建て直さずに人数やルールを変えるため)。
 - 順序制御は最低限。配布を経ていないフェーズへ行けないことだけを縛る。
+- 「お題を確認した」は共有の事実なので状態に持つ。ただしフェーズを進めるかは
+  規則が決めない(自動遷移を入れると、フェーズと記録が二重の真実になる)。
+  全員が確認したら次へ、という判断はクライアントの仕事。
 -/
 
 namespace WordNinja
@@ -64,6 +67,8 @@ structure Room where
   maxPlayers : Nat
   /-- 配布結果。未配布なら空。 -/
   words : List (PlayerId × Word)
+  /-- 自分のお題を確認し終えた人。配布のたびに空に戻る。 -/
+  confirmed : List PlayerId
   /-- 新しいものが先頭。 -/
   questions : List Question
   deriving Repr
@@ -77,6 +82,7 @@ structure PlayerView where
   turn : Option PlayerId
   teamCount : Nat
   maxPlayers : Nat
+  confirmed : List PlayerId
   /-- 正解が出たか(導出値)。 -/
   solved : Bool
   /-- 自分の語。観戦者は none。 -/
@@ -88,7 +94,7 @@ structure PlayerView where
 
 def emptyRoom : Room :=
   { phase := Phase.lobby, players := [], spectators := [], host := none, turn := none,
-    teamCount := 2, maxPlayers := 8, words := [], questions := [] }
+    teamCount := 2, maxPlayers := 8, words := [], confirmed := [], questions := [] }
 
 /-- 重複を落とす。語の種類数を数えるために使う。 -/
 def nub : List Word → List Word
@@ -130,6 +136,7 @@ def viewFor (r : Room) (p : PlayerId) : PlayerView :=
     turn := r.turn
     teamCount := r.teamCount
     maxPlayers := r.maxPlayers
+    confirmed := r.confirmed
     solved := solved r
     myWord := myWord r p
     questions := r.questions
@@ -144,6 +151,8 @@ inductive Action where
   /-- 配布。ホストのみ。配り方も最初の質問者もモデル外(非決定的な入力)。 -/
   | deal (by_ : PlayerId) (words : List (PlayerId × Word)) (firstAsker : PlayerId)
   | goto (ph : Phase)
+  /-- 自分のお題を確認した。配布のあと、全員が済んだかを見るために使う。 -/
+  | confirm (p : PlayerId)
   /-- 手番の人だけが質問できる。質問すると手番が次へ進む。 -/
   | ask (asker : PlayerId) (text : String)
   /-- 任意。自分の語について答える。質問者は答えない。 -/
@@ -178,13 +187,19 @@ def step (r : Room) : Action → Option Room
   | .deal by_ ws first =>
       if r.phase = Phase.lobby ∧ r.host = some by_ ∧ first ∈ r.players
           ∧ ValidDeal r.players r.teamCount ws then
-        some { r with phase := Phase.assignment, words := ws, turn := some first }
+        some { r with phase := Phase.assignment, words := ws, turn := some first,
+                      confirmed := [] }
       else none
   | .goto ph =>
       if ph = Phase.lobby then
-        some { r with phase := Phase.lobby, words := [], questions := [], turn := none }
+        some { r with phase := Phase.lobby, words := [], questions := [], turn := none,
+                      confirmed := [] }
       else if r.words ≠ [] then
         some { r with phase := ph }
+      else none
+  | .confirm p =>
+      if r.phase = Phase.assignment ∧ p ∈ r.players ∧ p ∉ r.confirmed then
+        some { r with confirmed := r.confirmed ++ [p] }
       else none
   | .ask asker text =>
       -- 手番の人だけ。正解が出たら質問は終わり。

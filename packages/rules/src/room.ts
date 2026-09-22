@@ -17,6 +17,8 @@ export type Room = {
   maxPlayers: number;
   /** 配布結果。未配布なら空。 */
   words: WordAssignment[];
+  /** 自分のお題を確認し終えた人。配布のたびに空に戻る。 */
+  confirmed: PlayerId[];
   /** 新しいものが先頭。 */
   questions: Question[];
 };
@@ -30,6 +32,7 @@ export const emptyRoom = (): Room => ({
   teamCount: 2,
   maxPlayers: 8,
   words: [],
+  confirmed: [],
   questions: [],
 });
 
@@ -69,6 +72,7 @@ export const viewFor = (room: Room, player: PlayerId): PlayerView => ({
   turn: room.turn,
   teamCount: room.teamCount,
   maxPlayers: room.maxPlayers,
+  confirmed: room.confirmed,
   solved: solved(room),
   myWord: myWord(room, player),
   questions: room.questions,
@@ -127,15 +131,30 @@ export const applyAction = (room: Room, action: Action): Room | null => {
             phase: "assignment",
             words: action.words,
             turn: action.firstAsker,
+            confirmed: [],
           }
         : null;
 
     case "goto":
       // lobby へ戻るときは記録を捨てる。配布前に lobby より先へは行けない。
       if (action.phase === "lobby") {
-        return { ...room, phase: "lobby", words: [], questions: [], turn: null };
+        return {
+          ...room,
+          phase: "lobby",
+          words: [],
+          questions: [],
+          turn: null,
+          confirmed: [],
+        };
       }
       return room.words.length > 0 ? { ...room, phase: action.phase } : null;
+
+    case "confirm":
+      return room.phase === "assignment" &&
+        room.players.includes(action.player) &&
+        !room.confirmed.includes(action.player)
+        ? { ...room, confirmed: [...room.confirmed, action.player] }
+        : null;
 
     case "ask":
       // 手番の人だけ。正解が出たら質問は終わり。
