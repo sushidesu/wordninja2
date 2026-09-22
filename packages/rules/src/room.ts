@@ -40,6 +40,10 @@ export const nextAfter = (players: PlayerId[], cur: PlayerId): PlayerId | null =
   return i === -1 ? players[0] : players[(i + 1) % players.length];
 };
 
+/** 正解が出たか。状態には持たず、回答の記録から導出する。 */
+export const solved = (room: Room): boolean =>
+  room.questions.some((q) => q.answers.some((a) => a.value === "correct"));
+
 export const myWord = (room: Room, player: PlayerId): string | null =>
   room.words.find((w) => w.player === player)?.word ?? null;
 
@@ -65,6 +69,7 @@ export const viewFor = (room: Room, player: PlayerId): PlayerView => ({
   turn: room.turn,
   teamCount: room.teamCount,
   maxPlayers: room.maxPlayers,
+  solved: solved(room),
   myWord: myWord(room, player),
   questions: room.questions,
   revealed: room.phase === "reveal" ? room.words : null,
@@ -133,8 +138,9 @@ export const applyAction = (room: Room, action: Action): Room | null => {
       return room.words.length > 0 ? { ...room, phase: action.phase } : null;
 
     case "ask":
-      // 手番の人だけ。質問すると手番が次へ進む(回答は任意なので待たない)。
-      return room.phase === "playing" && room.turn === action.asker
+      // 手番の人だけ。正解が出たら質問は終わり。
+      // 質問すると手番が次へ進む(回答は任意なので待たない)。
+      return room.phase === "playing" && room.turn === action.asker && !solved(room)
         ? {
             ...room,
             questions: [
@@ -152,10 +158,9 @@ export const applyAction = (room: Room, action: Action): Room | null => {
       if (!room.players.includes(action.player)) return null;
       if (action.player === newest.asker) return null;
       if (newest.answers.some((a) => a.player === action.player)) return null;
+      // 正解もただの記録。答えを開くのは別の一歩。
       return {
         ...room,
-        // 質問がお題そのものだったなら、そこでゲームが終わる。
-        phase: action.value === "correct" ? "reveal" : "playing",
         questions: [
           {
             ...newest,

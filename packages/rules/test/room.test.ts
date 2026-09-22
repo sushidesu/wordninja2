@@ -192,23 +192,31 @@ test("質問者は答えない: 質問した本人の回答は拒否される", 
   assert.deepEqual(answered?.questions[0]?.answers, [{ player: "b", value: "yes" }]);
 });
 
-test("終了条件: 「正解」と答えられた時点でゲームが終わり、割当が開く", () => {
+test("ワンクッション: 正解が出ても答えは開かず、質問だけが終わる", () => {
   const room = run(dealt(), [
     { type: "goto", phase: "playing" },
     { type: "ask", asker: "a", text: "それは刺身ですか?" },
     { type: "answer", player: "b", value: "correct" },
   ]);
-  assert.equal(room.phase, "reveal");
-  assert.deepEqual(viewFor(room, "a").revealed, room.words);
+  // 答えはまだ伏せたまま
+  assert.equal(room.phase, "playing");
+  assert.equal(viewFor(room, "a").revealed, null);
+  // 質問はもうできない
+  assert.equal(viewFor(room, "a").solved, true);
+  assert.equal(applyAction(room, { type: "ask", asker: "b", text: "x" }), null);
+  // 答え合わせは別の一歩
+  const revealed = applyAction(room, { type: "goto", phase: "reveal" });
+  assert.deepEqual(viewFor(revealed!, "a").revealed, room.words);
 });
 
-test("継続: 「正解」以外の回答ではゲームは終わらない", () => {
+test("継続: 「正解」以外の回答では質問が続けられる", () => {
   const room = run(dealt(), [
     { type: "goto", phase: "playing" },
     { type: "ask", asker: "a", text: "それは生で食べますか?" },
     { type: "answer", player: "b", value: "yes" },
   ]);
-  assert.equal(room.phase, "playing");
+  assert.equal(viewFor(room, "a").solved, false);
+  assert.ok(applyAction(room, { type: "ask", asker: "b", text: "x" }) !== null);
 });
 
 test("同席プレイの成立: 質問を記録せずに答え合わせへ到達できる", () => {

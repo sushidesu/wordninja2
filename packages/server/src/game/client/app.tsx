@@ -311,7 +311,11 @@ const Playing = ({
 }) => {
   const [text, setText] = useState("");
   const newest = view.questions[0];
-  const myTurn = view.turn === player;
+  const myTurn = view.turn === player && !view.solved;
+  // 正解が出た質問（あれば）。答えはまだ開いていない。
+  const solvedBy = view.questions
+    .flatMap((q) => q.answers.map((a) => ({ q, a })))
+    .find(({ a }) => a.value === "correct");
   // 質問者以外の全員が自分の語について答える。質問者は答えない。
   const shouldAnswer =
     newest !== undefined &&
@@ -320,8 +324,29 @@ const Playing = ({
 
   return (
     <div>
+      {solvedBy !== undefined && (
+        <div class="card">
+          <h2>正解</h2>
+          <div class="word">{solvedBy.q.text}</div>
+          <div class="muted" style="text-align:center">
+            {solvedBy.q.asker} さんの質問に {solvedBy.a.player} さんが「正解」と答えました
+          </div>
+          <div class="row" style="margin-top:14px; justify-content:center">
+            <button class="primary" onClick={() => conn.send({ type: "goto", phase: "reveal" })}>
+              答え合わせへ
+            </button>
+          </div>
+        </div>
+      )}
+
       <div class="card">
-        <h2>{myTurn ? "あなたの番です" : `${view.turn ?? "?"} さんの番`}</h2>
+        <h2>
+          {view.solved
+            ? "質問は終わりです"
+            : myTurn
+              ? "あなたの番です"
+              : `${view.turn ?? "?"} さんの番`}
+        </h2>
         <div class="row">
           <input
             type="text"

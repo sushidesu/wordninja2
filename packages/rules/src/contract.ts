@@ -40,6 +40,8 @@ export const playerViewSchema = z.object({
   turn: playerIdSchema.nullable(),
   teamCount: z.int(),
   maxPlayers: z.int(),
+  /** 正解が出たか(導出値)。 */
+  solved: z.boolean(),
   /** 自分の語。他人の語はここに入らない。 */
   myWord: z.string().nullable(),
   questions: z.array(questionSchema),

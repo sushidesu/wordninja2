@@ -80,7 +80,7 @@ theorem ask_follows_turn {r r' : Room} {p : PlayerId} {t : String}
     (h : step r (Action.ask p t) = some r') : r.turn = some p := by
   simp only [step] at h
   split at h
-  · rename_i hc; exact hc.2
+  · rename_i hc; exact hc.2.1
   · simp at h
 
 /-- **観戦者**: 観戦はプレイヤーでない人だけ。 -/
@@ -113,10 +113,10 @@ theorem asker_never_answers {r r' : Room} {p : PlayerId} {v : Answer}
     · simp at h
   · simp at h
 
-/-- **終了条件**: 「正解」と答えられた時点でゲームが終わり、割当が開く。 -/
-theorem correct_answer_ends_game {r r' : Room} {p : PlayerId}
-    (h : step r (Action.answer p Answer.correct) = some r') :
-    r'.phase = Phase.reveal := by
+/-- **ワンクッション**: 回答はフェーズを動かさない。正解が出ても答えは開かず、
+    答え合わせへ移るのは別の一歩。 -/
+theorem answer_never_changes_phase {r r' : Room} {p : PlayerId} {v : Answer}
+    (h : step r (Action.answer p v) = some r') : r'.phase = r.phase := by
   simp only [step] at h
   split at h
   · split at h
@@ -124,16 +124,10 @@ theorem correct_answer_ends_game {r r' : Room} {p : PlayerId}
     · simp at h
   · simp at h
 
-/-- **継続**: 「正解」以外の回答ではゲームは終わらない。 -/
-theorem other_answers_continue {r r' : Room} {p : PlayerId} {v : Answer}
-    (hv : v ≠ Answer.correct) (h : step r (Action.answer p v) = some r') :
-    r'.phase = Phase.playing := by
-  simp only [step] at h
-  split at h
-  · split at h
-    · have hr := Option.some.inj h; subst hr; simp [hv]
-    · simp at h
-  · simp at h
+/-- **正解のあとは質問できない**: 正解が記録されていれば質問は受理されない。 -/
+theorem no_ask_when_solved {r : Room} {p : PlayerId} {t : String}
+    (hs : solved r = true) : step r (Action.ask p t) = none := by
+  simp [step, hs]
 
 /-- **同席プレイの成立**: 質問を記録せずに答え合わせへ到達できる。
     口頭で進行するプレイがサーバーの進行モデルを通る。 -/

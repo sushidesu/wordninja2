@@ -8,7 +8,9 @@ Yes/No 質問から当てる。サーバーが権威として持つ状態・遷�
 設計上の要点:
 - チームは「同じ語を持つプレイヤーの集合」として導出する。状態には持たない。
 - **できるのは質問だけ**。「当てる」専用の操作は無い。質問がお題そのものだった時、
-  語の持ち主が `correct` と答え、それがゲームの終了になる。
+  語の持ち主が `correct` と答え、そこで質問が終わる。答えを開くのは別の一歩で、
+  いきなり開かない。「正解が出た」はフェーズではなく回答の記録から導出する
+  (同じ事実を2箇所に持つと、フェーズを戻したときに矛盾が作れてしまう)。
 - 質問はラウンドロビン。最初の質問者は配布時に決める(乱択はモデルの外)。
   質問すると手番が次へ進む。回答を待たないのは、回答が任意で待つと詰むため。
 - 質問に対象者は無い。**質問者以外の全員が自分の語について答える**(質問者は答えない)。
@@ -75,6 +77,8 @@ structure PlayerView where
   turn : Option PlayerId
   teamCount : Nat
   maxPlayers : Nat
+  /-- 正解が出たか(導出値)。 -/
+  solved : Bool
   /-- 自分の語。観戦者は none。 -/
   myWord : Option Word
   questions : List Question
@@ -110,6 +114,10 @@ instance (ps : List PlayerId) (n : Nat) (ws : List (PlayerId × Word)) :
     Decidable (ValidDeal ps n ws) := by
   unfold ValidDeal; infer_instance
 
+/-- 正解が出たか。状態には持たず、回答の記録から導出する。 -/
+def solved (r : Room) : Bool :=
+  r.questions.any (fun q => q.answers.any (fun a => a.2 == Answer.correct))
+
 def myWord (r : Room) (p : PlayerId) : Option Word :=
   (r.words.find? (fun e => e.1 == p)).map Prod.snd
 
@@ -122,6 +130,7 @@ def viewFor (r : Room) (p : PlayerId) : PlayerView :=
     turn := r.turn
     teamCount := r.teamCount
     maxPlayers := r.maxPlayers
+    solved := solved r
     myWord := myWord r p
     questions := r.questions
     revealed := if r.phase = Phase.reveal then some r.words else none }
@@ -178,8 +187,9 @@ def step (r : Room) : Action → Option Room
         some { r with phase := ph }
       else none
   | .ask asker text =>
-      -- 手番の人だけ。質問すると手番が次へ進む(回答は任意なので待たない)。
-      if r.phase = Phase.playing ∧ r.turn = some asker then
+      -- 手番の人だけ。正解が出たら質問は終わり。
+      -- 質問すると手番が次へ進む(回答は任意なので待たない)。
+      if r.phase = Phase.playing ∧ r.turn = some asker ∧ solved r = false then
         some { r with
           questions := { asker := asker, text := text, answers := [] } :: r.questions
           turn := nextAfter r.players asker }
@@ -189,10 +199,8 @@ def step (r : Room) : Action → Option Room
       | Phase.playing, q :: qs =>
           -- 質問者以外の全員が答える。観戦者は答えない。
           if p ∈ r.players ∧ p ≠ q.asker ∧ p ∉ q.answers.map Prod.fst then
-            some { r with
-              questions := { q with answers := (p, value) :: q.answers } :: qs
-              -- 質問がお題そのものだったなら、そこでゲームが終わる。
-              phase := if value = Answer.correct then Phase.reveal else Phase.playing }
+            -- 正解もただの記録。答えを開くのは別の一歩。
+            some { r with questions := { q with answers := (p, value) :: q.answers } :: qs }
           else none
       | _, _ => none
 
