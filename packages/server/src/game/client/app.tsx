@@ -1,3 +1,6 @@
+// hono/jsx/dom は、フラグメントを返すコンポーネントの後ろに兄弟要素があると、
+// 再描画のたびにそのノード群を再挿入する。DOM は再挿入でフォーカスを失うため、
+// 入力欄が1文字ごとにフォーカスを失っていた。単一要素を返せば起きない。
 import { useEffect, useRef, useState } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 import type { Action, Answer, PlayerView } from "@wordninja/rules";
@@ -94,7 +97,7 @@ const Lobby = ({ view, player, conn }: { view: PlayerView; player: string; conn:
       words: view.players.map((p) => ({ player: p, word: words[p].trim() })),
     });
   return (
-    <>
+    <div>
       <div class="card">
         <h2>参加者</h2>
         {view.players.length === 0 ? (
@@ -137,7 +140,7 @@ const Lobby = ({ view, player, conn }: { view: PlayerView; player: string; conn:
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
@@ -163,7 +166,7 @@ const Playing = ({ view, player, conn }: { view: PlayerView; player: string; con
   const pending = view.guesses[0]?.verdict === null ? view.guesses[0] : undefined;
   const others = view.players.filter((p) => p !== player);
   return (
-    <>
+    <div>
       <div class="card">
         <h2>質問する</h2>
         <div class="row">
@@ -282,7 +285,7 @@ const Playing = ({ view, player, conn }: { view: PlayerView; player: string; con
           ))}
         </div>
       )}
-    </>
+    </div>
   );
 };
 
@@ -302,7 +305,7 @@ const Room = ({ code, player, onLeave }: { code: string; player: string; onLeave
   if (view === null) return <div class="card">接続中…</div>;
   const phases = ["lobby", "assignment", "playing", "reveal"] as const;
   return (
-    <>
+    <div>
       <div class="row" style="margin-bottom:8px">
         <h1>ワードニンジャ</h1>
         <span class="muted">
@@ -335,7 +338,7 @@ const Room = ({ code, player, onLeave }: { code: string; player: string; onLeave
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 };
 
