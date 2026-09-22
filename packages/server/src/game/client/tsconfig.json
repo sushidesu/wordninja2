@@ -1,0 +1,18 @@
+{
+  // クライアントはブラウザ向けで JSX の import source が SSR 側と異なる。
+  // エディタ(tsserver)はファイルから最も近い tsconfig.json を使うため、
+  // 設定をこのディレクトリに置く必要がある(tsconfig.client.json では拾われない)。
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["esnext", "dom"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx/dom"
+  },
+  "include": ["."]
+}

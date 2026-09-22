@@ -10,7 +10,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply wordninja-server --remote",
     "db:studio": "drizzle-kit studio",
     "dev": "wrangler dev",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.client.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/game/client"
   },
   "dependencies": {
     "@wordninja/rules": "workspace:*",
