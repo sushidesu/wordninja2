@@ -1,6 +1,6 @@
 // hono/jsx/dom は、フラグメントを返すコンポーネントの後ろに兄弟要素があると、
 // 再描画のたびにそのノード群を再挿入する。DOM は再挿入でフォーカスを失うため、
-// 入力欄が1文字ごとにフォーカスを失っていた。単一要素を返せば起きない。
+// 入力欄が1文字ごとにフォーカスを失う。各コンポーネントは単一要素を返すこと。
 import { useEffect, useRef, useState } from "hono/jsx";
 import { render } from "hono/jsx/dom";
 import type { Action, Answer, PlayerView } from "@wordninja/rules";
@@ -12,18 +12,18 @@ const ANSWER_LABELS: Record<Answer, string> = {
   no: "いいえ",
   partly: "部分的に",
   unknown: "わからない",
+  correct: "正解",
 };
 
-type Connection = { send: (action: Action) => void; close: () => void };
+type Settings = { teamCount: number; maxPlayers: number };
+type Connection = { send: (action: Action) => void };
 
-/** 部屋への接続。view は受け取った最新の PlayerView。 */
-const useRoom = (code: string | null, player: string) => {
+const useRoom = (code: string, player: string) => {
   const [view, setView] = useState<PlayerView | null>(null);
   const [rejected, setRejected] = useState(0);
   const socket = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    if (code === null) return;
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const ws = new WebSocket(
       `${proto}://${location.host}/api/game/rooms/${code}/ws?player=${encodeURIComponent(player)}`,
@@ -37,92 +37,171 @@ const useRoom = (code: string | null, player: string) => {
     return () => ws.close();
   }, [code, player]);
 
-  const conn: Connection = {
-    send: (action) => socket.current?.send(JSON.stringify(action)),
-    close: () => socket.current?.close(),
+  return {
+    view,
+    rejected,
+    conn: { send: (a: Action) => socket.current?.send(JSON.stringify(a)) },
   };
-  return { view, rejected, conn };
 };
 
-const Entry = ({ onEnter }: { onEnter: (code: string, player: string) => void }) => {
+const Entry = ({
+  onEnter,
+}: {
+  onEnter: (code: string, player: string, settings: Settings | null) => void;
+}) => {
   const [player, setPlayer] = useState("");
   const [code, setCode] = useState("");
+  const [open, setOpen] = useState(false);
+  const [teamCount, setTeamCount] = useState(2);
+  const [maxPlayers, setMaxPlayers] = useState(8);
+  const ready = player.trim().length > 0;
+
   const create = async () => {
     const res = await fetch("/api/game/rooms", { method: "POST" });
     const { code: newCode } = (await res.json()) as { code: string };
-    onEnter(newCode, player.trim());
+    onEnter(newCode, player.trim(), open ? { teamCount, maxPlayers } : null);
   };
-  const ready = player.trim().length > 0;
+
   return (
-    <div class="card">
-      <h2>名前</h2>
-      <div class="row">
-        <input
-          type="text"
-          value={player}
-          placeholder="あなたの名前"
-          onInput={(e: Event) => setPlayer((e.target as HTMLInputElement).value)}
-        />
+    <div>
+      <h1 style="margin-bottom:12px">ワードニンジャ</h1>
+      <div class="card">
+        <h2>あなたの名前</h2>
+        <div class="row">
+          <input
+            type="text"
+            value={player}
+            placeholder="名前"
+            onInput={(e: Event) => setPlayer((e.target as HTMLInputElement).value)}
+          />
+        </div>
       </div>
-      <h2 style="margin-top:16px">部屋</h2>
-      <div class="row">
-        <input
-          type="text"
-          value={code}
-          placeholder="部屋コード"
-          onInput={(e: Event) =>
-            setCode((e.target as HTMLInputElement).value.toUpperCase())
-          }
-        />
-        <button disabled={!ready || code.length === 0} onClick={() => onEnter(code, player.trim())}>
-          入る
-        </button>
+
+      <div class="card">
+        <h2>部屋に入る</h2>
+        <div class="row">
+          <input
+            type="text"
+            value={code}
+            placeholder="部屋コード"
+            onInput={(e: Event) =>
+              setCode((e.target as HTMLInputElement).value.toUpperCase())
+            }
+          />
+          <button
+            disabled={!ready || code.length === 0}
+            onClick={() => onEnter(code, player.trim(), null)}
+          >
+            入る
+          </button>
+        </div>
       </div>
-      <div class="row" style="margin-top:10px">
-        <button class="primary" disabled={!ready} onClick={create}>
-          新しい部屋を作る
-        </button>
+
+      <div class="card">
+        <h2>部屋を建てる</h2>
+        <div class="row">
+          <button class="primary" disabled={!ready} onClick={create}>
+            新しい部屋を作る
+          </button>
+          <button onClick={() => setOpen(!open)}>
+            {open ? "設定を閉じる" : "設定"}
+          </button>
+        </div>
+        {open && (
+          <div style="margin-top:12px">
+            <div class="row" style="margin-bottom:8px">
+              <span style="min-width:96px">お題の種類</span>
+              <input
+                type="number"
+                min="2"
+                max="4"
+                value={String(teamCount)}
+                onInput={(e: Event) =>
+                  setTeamCount(Number((e.target as HTMLInputElement).value))
+                }
+              />
+              <span class="muted">同じ語を持つ人が仲間</span>
+            </div>
+            <div class="row">
+              <span style="min-width:96px">人数の上限</span>
+              <input
+                type="number"
+                min="2"
+                max="16"
+                value={String(maxPlayers)}
+                onInput={(e: Event) =>
+                  setMaxPlayers(Number((e.target as HTMLInputElement).value))
+                }
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-const Lobby = ({ view, player, conn }: { view: PlayerView; player: string; conn: Connection }) => {
+const Lobby = ({
+  view,
+  player,
+  conn,
+}: {
+  view: PlayerView;
+  player: string;
+  conn: Connection;
+}) => {
   const [words, setWords] = useState<Record<string, string>>({});
-  const joined = view.players.includes(player);
+  const isHost = view.host === player;
+  const isPlayer = view.players.includes(player);
   const filled = view.players.every((p) => (words[p] ?? "").trim().length > 0);
-  const deal = () =>
-    conn.send({
-      type: "deal",
-      words: view.players.map((p) => ({ player: p, word: words[p].trim() })),
-    });
+  const kinds = new Set(view.players.map((p) => (words[p] ?? "").trim()).filter(Boolean));
+  const kindsOk = kinds.size === view.teamCount;
+  // 最初の質問者はランダム。規則は純関数に保つので乱択はここで行う。
+  const pickFirstAsker = () =>
+    view.players[Math.floor(Math.random() * view.players.length)];
+
   return (
     <div>
       <div class="card">
-        <h2>参加者</h2>
+        <h2>参加者 {view.players.length} / {view.maxPlayers}</h2>
         {view.players.length === 0 ? (
           <div class="muted">まだ誰もいません</div>
         ) : (
-          view.players.map((p) => <span class="chip">{p}</span>)
+          view.players.map((p) => (
+            <span class={p === view.host ? "chip host" : "chip"}>
+              {p}
+              {p === view.host ? " (ホスト)" : ""}
+            </span>
+          ))
         )}
-        {!joined && (
-          <div class="row" style="margin-top:10px">
-            <button class="primary" onClick={() => conn.send({ type: "join", player })}>
-              参加する
-            </button>
+        {view.spectators.length > 0 && (
+          <div style="margin-top:8px">
+            <span class="muted">観戦 </span>
+            {view.spectators.map((p) => (
+              <span class="chip">{p}</span>
+            ))}
           </div>
         )}
+        <div class="row" style="margin-top:12px">
+          {isPlayer ? (
+            <button onClick={() => conn.send({ type: "spectate", player })}>
+              観戦にまわる
+            </button>
+          ) : (
+            <button onClick={() => conn.send({ type: "join", player })}>参加する</button>
+          )}
+        </div>
       </div>
-      {joined && view.players.length >= 2 && (
+
+      {isHost && view.players.length >= 2 && (
         <div class="card">
           <h2>お題を配る</h2>
-          <div class="muted" style="margin-bottom:8px">
-            同じ語を持つ人が仲間。語の種類数がチーム数(現在 {view.players.length >= 2 ? "" : ""}
-            自由)と一致する必要があります。
+          <div class="muted" style="margin-bottom:10px">
+            同じ語を持つ人が仲間。語の種類はちょうど {view.teamCount} 種類にする。
           </div>
           {view.players.map((p) => (
             <div class="row" style="margin-bottom:6px">
-              <span style="min-width:80px">{p}</span>
+              <span style="min-width:84px">{p}</span>
               <input
                 type="text"
                 value={words[p] ?? ""}
@@ -133,11 +212,75 @@ const Lobby = ({ view, player, conn }: { view: PlayerView; player: string; conn:
               />
             </div>
           ))}
-          <div class="row" style="margin-top:10px">
-            <button class="primary" disabled={!filled} onClick={deal}>
+          <div class="row" style="margin-top:12px">
+            <button
+              class="primary"
+              disabled={!filled || !kindsOk}
+              onClick={() =>
+                conn.send({
+                  type: "deal",
+                  by: player,
+                  words: view.players.map((p) => ({ player: p, word: words[p].trim() })),
+                  firstAsker: pickFirstAsker(),
+                })
+              }
+            >
               配って開始
             </button>
+            {filled && !kindsOk && (
+              <span class="muted">いまは {kinds.size} 種類</span>
+            )}
           </div>
+        </div>
+      )}
+
+      {!isHost && (
+        <div class="card">
+          <div class="muted">ホストがお題を配るのを待っています</div>
+        </div>
+      )}
+
+      {isHost && <Settings view={view} player={player} conn={conn} />}
+    </div>
+  );
+};
+
+/** 部屋設定。ホストのみ。建て直さずにいつでも変えられる。 */
+const Settings = ({
+  view,
+  player,
+  conn,
+}: {
+  view: PlayerView;
+  player: string;
+  conn: Connection;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [teamCount, setTeamCount] = useState(view.teamCount);
+  const [maxPlayers, setMaxPlayers] = useState(view.maxPlayers);
+  return (
+    <div class="card">
+      <div class="row">
+        <h2 style="margin:0">部屋設定</h2>
+        <span class="spacer" />
+        <button onClick={() => setOpen(!open)}>{open ? "閉じる" : "変更"}</button>
+      </div>
+      {open && (
+        <div style="margin-top:12px">
+          <div class="row" style="margin-bottom:8px">
+            <span style="min-width:96px">お題の種類</span>
+            <input type="number" min="2" max="4" value={String(teamCount)}
+              onInput={(e: Event) => setTeamCount(Number((e.target as HTMLInputElement).value))} />
+          </div>
+          <div class="row" style="margin-bottom:12px">
+            <span style="min-width:96px">人数の上限</span>
+            <input type="number" min="2" max="16" value={String(maxPlayers)}
+              onInput={(e: Event) => setMaxPlayers(Number((e.target as HTMLInputElement).value))} />
+          </div>
+          <button class="primary"
+            onClick={() => conn.send({ type: "configure", by: player, teamCount, maxPlayers })}>
+            適用
+          </button>
         </div>
       )}
     </div>
@@ -149,7 +292,7 @@ const MyWord = ({ word }: { word: string | null }) => {
   return (
     <div class="card">
       <h2>あなたのお題</h2>
-      <div class="word">{shown ? (word ?? "—") : "• • •"}</div>
+      <div class="word">{shown ? (word ?? "—") : "● ● ●"}</div>
       <div class="row">
         <button onClick={() => setShown(!shown)}>{shown ? "隠す" : "見る"}</button>
       </div>
@@ -157,28 +300,39 @@ const MyWord = ({ word }: { word: string | null }) => {
   );
 };
 
-const Playing = ({ view, player, conn }: { view: PlayerView; player: string; conn: Connection }) => {
+const Playing = ({
+  view,
+  player,
+  conn,
+}: {
+  view: PlayerView;
+  player: string;
+  conn: Connection;
+}) => {
   const [text, setText] = useState("");
-  const [guess, setGuess] = useState("");
-  const [target, setTarget] = useState("");
   const newest = view.questions[0];
-  const answered = newest?.answers.some((a) => a.player === player) ?? false;
-  const pending = view.guesses[0]?.verdict === null ? view.guesses[0] : undefined;
-  const others = view.players.filter((p) => p !== player);
+  const myTurn = view.turn === player;
+  // 質問者以外の全員が自分の語について答える。質問者は答えない。
+  const shouldAnswer =
+    newest !== undefined &&
+    newest.asker !== player &&
+    !newest.answers.some((a) => a.player === player);
+
   return (
     <div>
       <div class="card">
-        <h2>質問する</h2>
+        <h2>{myTurn ? "あなたの番です" : `${view.turn ?? "?"} さんの番`}</h2>
         <div class="row">
           <input
             type="text"
             value={text}
             placeholder="例: それは食べ物ですか?"
+            disabled={!myTurn}
             onInput={(e: Event) => setText((e.target as HTMLInputElement).value)}
           />
           <button
             class="primary"
-            disabled={text.trim().length === 0}
+            disabled={!myTurn || text.trim().length === 0}
             onClick={() => {
               conn.send({ type: "ask", asker: player, text: text.trim() });
               setText("");
@@ -187,69 +341,30 @@ const Playing = ({ view, player, conn }: { view: PlayerView; player: string; con
             聞く
           </button>
         </div>
+        <div class="muted" style="margin-top:8px">
+          お題そのものを言い当てたら、相手が「正解」と答えてゲームが終わります。
+        </div>
       </div>
 
-      {newest !== undefined && !answered && (
+      {shouldAnswer && (
         <div class="card">
           <h2>あなたのお題について答える</h2>
-          <div style="margin-bottom:8px">{newest.text}</div>
+          <div class="text" style="margin-bottom:10px">
+            {newest.asker}: {newest.text}
+          </div>
           <div class="row">
-            {(Object.keys(ANSWER_LABELS) as Answer[]).map((value) => (
+            {(["yes", "no", "partly", "unknown"] as Answer[]).map((value) => (
               <button onClick={() => conn.send({ type: "answer", player, value })}>
                 {ANSWER_LABELS[value]}
               </button>
             ))}
-          </div>
-        </div>
-      )}
-
-      <div class="card">
-        <h2>お題を当てる</h2>
-        <div class="row">
-          <select
-            value={target}
-            onChange={(e: Event) => setTarget((e.target as HTMLSelectElement).value)}
-          >
-            <option value="">相手を選ぶ</option>
-            {others.map((p) => (
-              <option value={p}>{p}</option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={guess}
-            placeholder="お題だと思うもの"
-            onInput={(e: Event) => setGuess((e.target as HTMLInputElement).value)}
-          />
-          <button
-            class="primary"
-            disabled={target === "" || guess.trim().length === 0}
-            onClick={() => {
-              conn.send({ type: "guess", guesser: player, target, text: guess.trim() });
-              setGuess("");
-            }}
-          >
-            当てる
-          </button>
-        </div>
-      </div>
-
-      {pending !== undefined && (
-        <div class="card">
-          <h2>判定</h2>
-          <div style="margin-bottom:8px">
-            {pending.guesser} →「{pending.text}」({pending.target} のお題だと推測)
-          </div>
-          <div class="row">
-            <button onClick={() => conn.send({ type: "judge", judger: player, correct: true })}>
+            <span class="spacer" />
+            <button
+              class="primary"
+              onClick={() => conn.send({ type: "answer", player, value: "correct" })}
+            >
               正解
             </button>
-            <button onClick={() => conn.send({ type: "judge", judger: player, correct: false })}>
-              不正解
-            </button>
-          </div>
-          <div class="muted" style="margin-top:6px">
-            判定できるのはそのお題の持ち主だけです
           </div>
         </div>
       )}
@@ -259,28 +374,16 @@ const Playing = ({ view, player, conn }: { view: PlayerView; player: string; con
           <h2>これまでの質問</h2>
           {view.questions.map((q) => (
             <div class="q">
-              <div>
+              <div class="text">
                 <strong>{q.asker}</strong>: {q.text}
               </div>
               <div class="muted">
                 {q.answers.length === 0
                   ? "回答待ち"
-                  : q.answers.map((a) => `${a.player}=${ANSWER_LABELS[a.value]}`).join(" / ")}
+                  : q.answers
+                      .map((a) => `${a.player} = ${ANSWER_LABELS[a.value]}`)
+                      .join(" / ")}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {view.guesses.length > 0 && (
-        <div class="card">
-          <h2>これまでの推測</h2>
-          {view.guesses.map((g) => (
-            <div class="q">
-              {g.guesser} →「{g.text}」({g.target}){" "}
-              <strong>
-                {g.verdict === null ? "判定待ち" : g.verdict ? "正解" : "不正解"}
-              </strong>
             </div>
           ))}
         </div>
@@ -294,15 +397,45 @@ const Reveal = ({ view }: { view: PlayerView }) => (
     <h2>答え合わせ</h2>
     {(view.revealed ?? []).map((w) => (
       <div class="q">
-        <strong>{w.word}</strong> — {w.player}
+        <span class="text" style="font-weight:700">
+          {w.word}
+        </span>{" "}
+        — {w.player}
       </div>
     ))}
   </div>
 );
 
-const Room = ({ code, player, onLeave }: { code: string; player: string; onLeave: () => void }) => {
+const Room = ({
+  code,
+  player,
+  settings,
+  onLeave,
+}: {
+  code: string;
+  player: string;
+  settings: Settings | null;
+  onLeave: () => void;
+}) => {
   const { view, rejected, conn } = useRoom(code, player);
+  const setup = useRef(false);
+
+  // 接続したら自動で参加する。最初の参加者がホストになるので、
+  // 部屋を建てた人の設定はホストになった直後に一度だけ送る。
+  useEffect(() => {
+    if (view === null || setup.current) return;
+    if (view.phase === "lobby" && !view.players.includes(player)) {
+      conn.send({ type: "join", player });
+      return;
+    }
+    if (view.host === player && settings !== null) {
+      conn.send({ type: "configure", by: player, ...settings });
+    }
+    setup.current = true;
+  }, [view]);
+
   if (view === null) return <div class="card">接続中…</div>;
+
   const phases = ["lobby", "assignment", "playing", "reveal"] as const;
   return (
     <div>
@@ -310,8 +443,9 @@ const Room = ({ code, player, onLeave }: { code: string; player: string; onLeave
         <h1>ワードニンジャ</h1>
         <span class="muted">
           部屋 <code>{code}</code> / {player}
+          {view.spectators.includes(player) ? "（観戦）" : ""}
         </span>
-        <span style="flex:1" />
+        <span class="spacer" />
         <button onClick={onLeave}>退出</button>
       </div>
 
@@ -343,16 +477,22 @@ const Room = ({ code, player, onLeave }: { code: string; player: string; onLeave
 };
 
 const App = () => {
-  const [entered, setEntered] = useState<{ code: string; player: string } | null>(null);
+  const [entered, setEntered] = useState<{
+    code: string;
+    player: string;
+    settings: Settings | null;
+  } | null>(null);
   return (
     <div class="wrap">
       {entered === null ? (
-        <>
-          <h1>ワードニンジャ</h1>
-          <Entry onEnter={(code, player) => setEntered({ code, player })} />
-        </>
+        <Entry onEnter={(code, player, settings) => setEntered({ code, player, settings })} />
       ) : (
-        <Room code={entered.code} player={entered.player} onLeave={() => setEntered(null)} />
+        <Room
+          code={entered.code}
+          player={entered.player}
+          settings={entered.settings}
+          onLeave={() => setEntered(null)}
+        />
       )}
     </div>
   );
