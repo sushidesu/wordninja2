@@ -12,6 +12,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@wordninja/rules": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.27"
   },
@@ -20,6 +21,6 @@
     "@libsql/client": "^0.17.4",
     "drizzle-kit": "^0.31.10",
     "typescript": "~6.0.3",
-    "wrangler": "^4.105.0"
+    "wrangler": "^4.135.0"
   }
 }
