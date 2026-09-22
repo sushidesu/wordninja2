@@ -25,6 +25,8 @@ app.route("/api", api);
 app.route("/api/game", game);
 
 app.get("/game", (c) => c.html(GamePage()));
+// 招待リンク。部屋コードは URL に載せるだけで、返すページは同じ。
+app.get("/game/:code", (c) => c.html(GamePage()));
 
 // ---- 人間用 Web UI（SSR + フォームPOST。/review は人間用クライアント）----
 

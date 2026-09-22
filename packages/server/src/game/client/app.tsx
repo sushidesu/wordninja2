@@ -7,6 +7,13 @@ import type { Action, Answer, PlayerView } from "@wordninja/rules";
 
 // 型だけを借りる(実行時の zod は持ち込まない)。送る値の形はサーバー側で検証される。
 
+/** 招待リンクは /game/<部屋コード>。アドレスバーがそのまま共有できる形にする。 */
+const ROOM_PATH = /^\/game\/([A-Z0-9]+)$/;
+const codeInUrl = (): string | null => ROOM_PATH.exec(location.pathname)?.[1] ?? null;
+const showRoomInUrl = (code: string | null) =>
+  history.replaceState(null, "", code === null ? "/game" : `/game/${code}`);
+const inviteUrl = (code: string) => `${location.origin}/game/${code}`;
+
 const ANSWER_LABELS: Record<Answer, string> = {
   yes: "はい",
   no: "いいえ",
@@ -47,12 +54,14 @@ const useRoom = (code: string, player: string) => {
 };
 
 const Entry = ({
+  invited,
   onEnter,
 }: {
+  invited: string | null;
   onEnter: (code: string, player: string, settings: Settings | null) => void;
 }) => {
   const [player, setPlayer] = useState("");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(invited ?? "");
   const [open, setOpen] = useState(false);
   const [teamCount, setTeamCount] = useState(2);
   const [maxPlayers, setMaxPlayers] = useState(8);
@@ -78,6 +87,23 @@ const Entry = ({
           />
         </div>
       </div>
+
+      {invited !== null && (
+        <div class="card">
+          <h2>招待された部屋</h2>
+          <div class="row">
+            <code>{invited}</code>
+            <span class="spacer" />
+            <button
+              class="primary"
+              disabled={!ready}
+              onClick={() => onEnter(invited, player.trim(), null)}
+            >
+              参加する
+            </button>
+          </div>
+        </div>
+      )}
 
       <div class="card">
         <h2>部屋に入る</h2>
@@ -293,6 +319,27 @@ const Lobby = ({
 };
 
 /** 部屋設定。ホストのみ。建て直さずにいつでも変えられる。 */
+/** 招待リンクを共有する。共有シートが無い環境ではクリップボードへ。 */
+const Invite = ({ code }: { code: string }) => {
+  const [copied, setCopied] = useState(false);
+  const canShare = typeof navigator.share === "function";
+  const share = async () => {
+    const url = inviteUrl(code);
+    if (canShare) {
+      await navigator.share({ title: "ワードニンジャ", text: "一緒に遊びませんか", url });
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  };
+  return (
+    <button onClick={share}>
+      {copied ? "コピーしました" : canShare ? "招待" : "リンクをコピー"}
+    </button>
+  );
+};
+
 const Settings = ({
   view,
   player,
@@ -663,13 +710,22 @@ const App = () => {
   return (
     <div class="wrap">
       {entered === null ? (
-        <Entry onEnter={(code, player, settings) => setEntered({ code, player, settings })} />
+        <Entry
+          invited={codeInUrl()}
+          onEnter={(code, player, settings) => {
+            showRoomInUrl(code);
+            setEntered({ code, player, settings });
+          }}
+        />
       ) : (
         <Room
           code={entered.code}
           player={entered.player}
           settings={entered.settings}
-          onLeave={() => setEntered(null)}
+          onLeave={() => {
+            showRoomInUrl(null);
+            setEntered(null);
+          }}
         />
       )}
     </div>
