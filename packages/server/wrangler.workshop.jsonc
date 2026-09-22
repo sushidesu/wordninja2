@@ -11,7 +11,7 @@
     {
       "binding": "DB",
       "database_name": "wordninja",
-      "database_id": "local",
+      "database_id": "14a37558-b551-4f6b-9d49-5706f5cd1182",
       "migrations_dir": "drizzle",
     },
   ],

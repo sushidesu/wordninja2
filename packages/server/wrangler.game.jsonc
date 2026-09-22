@@ -3,6 +3,15 @@
   "name": "wordninja",
   "main": "src/game-worker.ts",
   "compatibility_date": "2026-06-27",
+  // 既定の *.workers.dev を出さず、カスタムドメインだけで公開する。
+  // preview_urls は既定で workers_dev を継承するのでこれも無効になる。
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "wordninja.dayo.app",
+      "custom_domain": true,
+    },
+  ],
   // クライアントのバンドル(public/client.js)を配る。
   "assets": {
     "directory": "./public",
@@ -27,7 +36,7 @@
     {
       "binding": "DB",
       "database_name": "wordninja",
-      "database_id": "local",
+      "database_id": "14a37558-b551-4f6b-9d49-5706f5cd1182",
       "migrations_dir": "drizzle",
     },
   ],
