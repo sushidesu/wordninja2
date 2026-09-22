@@ -1,0 +1,6 @@
+name = "WordNinja"
+version = "0.1.0"
+defaultTargets = ["WordNinja"]
+
+[[lean_lib]]
+name = "WordNinja"
