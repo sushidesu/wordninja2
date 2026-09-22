@@ -16,9 +16,6 @@ const ANSWER_LABELS: Record<Answer, string> = {
 };
 
 type Settings = { teamCount: number; maxPlayers: number };
-
-/** 語ごとの識別色。mobile の TeamSplitColors と同じ並び。 */
-const SPLIT = ["var(--split-1)", "var(--split-2)", "var(--split-3)", "var(--split-4)"];
 type Connection = { send: (action: Action) => void };
 
 const useRoom = (code: string, player: string) => {
@@ -67,7 +64,7 @@ const Entry = ({
 
   return (
     <div>
-      <div class="brand" style="font-size:32px; margin: 8px 0 22px">ワードニンジャ</div>
+      <h1 style="margin-bottom:12px">ワードニンジャ</h1>
       <div class="card">
         <h2>あなたの名前</h2>
         <div class="row">
@@ -103,10 +100,10 @@ const Entry = ({
       <div class="card">
         <h2>部屋を建てる</h2>
         <div class="row">
-          <button class="primary big" disabled={!ready} onClick={create}>
+          <button class="primary" disabled={!ready} onClick={create}>
             新しい部屋を作る
           </button>
-          <button class="ghost" onClick={() => setOpen(!open)}>
+          <button onClick={() => setOpen(!open)}>
             {open ? "設定を閉じる" : "設定"}
           </button>
         </div>
@@ -173,7 +170,7 @@ const Lobby = ({
           view.players.map((p) => (
             <span class={p === view.host ? "chip host" : "chip"}>
               {p}
-              {p === view.host ? " ホスト" : ""}
+              {p === view.host ? " (ホスト)" : ""}
             </span>
           ))
         )}
@@ -217,7 +214,7 @@ const Lobby = ({
           ))}
           <div class="row" style="margin-top:12px">
             <button
-              class="primary big"
+              class="primary"
               disabled={!filled || !kindsOk}
               onClick={() =>
                 conn.send({
@@ -307,15 +304,11 @@ const Assignment = ({
   const isPlayer = view.players.includes(player);
   return (
     <div>
-      <div class={seen ? "card accent" : "card"}>
+      <div class="card">
         <h2>あなたのお題</h2>
-        <div class="display" style="padding:26px 0">
-          {seen ? (view.myWord ?? "—") : <span class="hidden-word">● ● ●</span>}
-        </div>
-        <div class="row center">
-          <button class="big" onClick={() => setSeen(!seen)}>
-            {seen ? "隠す" : "めくる"}
-          </button>
+        <div class="word">{seen ? (view.myWord ?? "—") : "● ● ●"}</div>
+        <div class="row" style="justify-content:center">
+          <button onClick={() => setSeen(!seen)}>{seen ? "隠す" : "見る"}</button>
         </div>
       </div>
       <div class="card">
@@ -323,14 +316,15 @@ const Assignment = ({
           確認 {view.confirmed.length} / {view.players.length}
         </h2>
         {view.players.map((p) => (
-          <span class={view.confirmed.includes(p) ? "chip on" : "chip"}>
-            {view.confirmed.includes(p) ? "✓" : "…"} {p}
+          <span class={view.confirmed.includes(p) ? "chip host" : "chip"}>
+            {p}
+            {view.confirmed.includes(p) ? " ✓" : ""}
           </span>
         ))}
         {isPlayer && (
           <div class="row" style="margin-top:12px">
             <button
-              class="primary big"
+              class="primary"
               disabled={done || !seen}
               onClick={() => conn.send({ type: "confirm", player })}
             >
@@ -341,7 +335,7 @@ const Assignment = ({
         )}
         {view.host === player && (
           <div class="row" style="margin-top:10px">
-            <button class="ghost" onClick={() => conn.send({ type: "goto", phase: "lobby" })}>
+            <button onClick={() => conn.send({ type: "goto", phase: "lobby" })}>
               配り直す
             </button>
           </div>
@@ -355,14 +349,11 @@ const MyWord = ({ word }: { word: string | null }) => {
   const [shown, setShown] = useState(false);
   return (
     <div class="card">
+      <h2>あなたのお題</h2>
+      <div class="word">{shown ? (word ?? "—") : "● ● ●"}</div>
       <div class="row">
-        <h2 style="margin:0">あなたのお題</h2>
-        <span class="spacer" />
-        <button class="ghost" onClick={() => setShown(!shown)}>
-          {shown ? "隠す" : "見る"}
-        </button>
+        <button onClick={() => setShown(!shown)}>{shown ? "隠す" : "見る"}</button>
       </div>
-      {shown && <div class="display" style="font-size:30px; padding:14px 0">{word ?? "—"}</div>}
     </div>
   );
 };
@@ -392,14 +383,14 @@ const Playing = ({
   return (
     <div>
       {solvedBy !== undefined && (
-        <div class="card accent">
+        <div class="card">
           <h2>正解</h2>
-          <div class="display" style="padding:16px 0">{solvedBy.q.text}</div>
+          <div class="word">{solvedBy.q.text}</div>
           <div class="muted" style="text-align:center">
             {solvedBy.q.asker} さんの質問に {solvedBy.a.player} さんが「正解」と答えました
           </div>
-          <div class="row center" style="margin-top:18px">
-            <button class="spark big" onClick={() => conn.send({ type: "goto", phase: "reveal" })}>
+          <div class="row" style="margin-top:14px; justify-content:center">
+            <button class="primary" onClick={() => conn.send({ type: "goto", phase: "reveal" })}>
               答え合わせへ
             </button>
           </div>
@@ -441,8 +432,8 @@ const Playing = ({
       {shouldAnswer && (
         <div class="card">
           <h2>あなたのお題について答える</h2>
-          <div class="lead" style="margin-bottom:12px">
-            <span class="who">{newest.asker}</span>: {newest.text}
+          <div class="text" style="margin-bottom:10px">
+            {newest.asker}: {newest.text}
           </div>
           <div class="row">
             {(["yes", "no", "partly", "unknown"] as Answer[]).map((value) => (
@@ -452,10 +443,10 @@ const Playing = ({
             ))}
             <span class="spacer" />
             <button
-              class="spark"
+              class="primary"
               onClick={() => conn.send({ type: "answer", player, value: "correct" })}
             >
-              正解!
+              正解
             </button>
           </div>
         </div>
@@ -474,10 +465,10 @@ const Playing = ({
           <h2>これまでの質問</h2>
           {view.questions.map((q) => (
             <div class="q">
-              <div class="lead">
-                <span class="who">{q.asker}</span>: {q.text}
+              <div class="text">
+                <strong>{q.asker}</strong>: {q.text}
               </div>
-              <div class="ans">
+              <div class="muted">
                 {q.answers.length === 0
                   ? "回答待ち"
                   : q.answers
@@ -502,12 +493,12 @@ const Reveal = ({ view, conn }: { view: PlayerView; conn: Connection }) => {
     <div>
       <div class="card">
         <h2>答え合わせ</h2>
-        {[...byWord.entries()].map(([word, members], i) => (
-          <div class="team" style={`border-left-color:${SPLIT[i % SPLIT.length]}`}>
-            <div class="display" style="font-size:26px; text-align:left">
+        {[...byWord.entries()].map(([word, members]) => (
+          <div class="q">
+            <div class="word" style="padding:8px 0; font-size:26px">
               {word}
             </div>
-            <div style="margin-top:4px">
+            <div style="text-align:center">
               {members.map((m) => (
                 <span class="chip">{m}</span>
               ))}
@@ -516,7 +507,7 @@ const Reveal = ({ view, conn }: { view: PlayerView; conn: Connection }) => {
         ))}
       </div>
       <div class="row" style="justify-content:center">
-        <button class="primary big" onClick={() => conn.send({ type: "goto", phase: "lobby" })}>
+        <button class="primary" onClick={() => conn.send({ type: "goto", phase: "lobby" })}>
           もう一度プレイする
         </button>
       </div>
@@ -574,17 +565,17 @@ const Room = ({
 
   return (
     <div>
-      <div class="row" style="margin-bottom:10px">
-        <span class="brand">ワードニンジャ</span>
-        <span class="code">{code}</span>
+      <div class="row" style="margin-bottom:8px">
+        <h1>ワードニンジャ</h1>
+        <span class="muted">
+          部屋 <code>{code}</code> / {player}
+          {view.spectators.includes(player) ? "（観戦）" : ""}
+        </span>
         <span class="spacer" />
         {view.host === player && (
-          <button class="ghost" onClick={() => setSettingsOpen(!settingsOpen)}>
-            設定
-          </button>
+          <button onClick={() => setSettingsOpen(!settingsOpen)}>設定</button>
         )}
         <button
-          class="ghost"
           onClick={() => {
             conn.send({ type: "leave", player });
             onLeave();
@@ -592,10 +583,6 @@ const Room = ({
         >
           退出
         </button>
-      </div>
-      <div class="muted" style="margin:-4px 0 6px">
-        {player}
-        {view.spectators.includes(player) ? "（観戦）" : ""}
       </div>
 
       {settingsOpen && view.host === player && (

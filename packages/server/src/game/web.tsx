@@ -1,12 +1,9 @@
 import { html } from "hono/html";
 
 // クライアント(hono/jsx/dom)を載せるだけの殻。進行の表示は全部クライアント側。
-//
-// 配色は packages/mobile の "Leaf Pop" テーマ(白キャンバスにグリーンを主役、
-// ティールを一点挿し)に合わせている。同じゲームなので見た目を揃える。
-// 専用フォント(Dela Gothic One)はタイトルだけに使い、それ以外は system-ui。
-// mobile 側にダークモードが無いため、ここでも light 固定にする。色はトークンで
-// 持ち、生の hex は :root だけに置く(mobile の theme.ts と同じ方針)。
+// 色は :root のトークンで持つ。ダークモードをセレクタの上書きで書くと、
+// 後続のルールに負けて効かなくなる(実際に card だけ白いまま残った)。
+// 配色は packages/mobile の "Leaf Pop"(白キャンバスにグリーンを主役)に合わせている。
 export const GamePage = () =>
   html`<!doctype html>
     <html lang="ja">
@@ -22,151 +19,65 @@ export const GamePage = () =>
         />
         <style>
           :root {
-            color-scheme: light;
-            /* 面 */
-            --canvas: #ffffff;
-            --paper: #f9fafb;
-            --paper-deep: #e5e7eb;
-            --paper-strong: #d1d5db;
-            /* 文字 */
-            --ink: #102820;
-            --ink-soft: #6b7280;
-            --ink-mute: #9ca3af;
-            /* アクセント */
-            --hero: #0ebcaa;
-            --hero-soft: #e6f6ea;
-            --flame: #1e7a3e;
-            --spark: #009e88;
-            --danger: #ff5252;
-            /* 語ごとの識別色 */
-            --split-1: #11d480;
-            --split-2: #fbbf24;
-            --split-3: #fb7185;
-            --split-4: #818cf8;
-
-            /* タイトルだけ専用フォント。それ以外は本文と同じ系。 */
-            --title: "Dela Gothic One", system-ui, sans-serif;
+            color-scheme: light dark;
+            --bg: #f9fafb;
+            --fg: #102820;
+            --card: #ffffff;
+            --field: #ffffff;
+            --border: #e5e7eb;
+            --muted: #6b7280;
+            --accent: #0ebcaa;
+            --accent-fg: #ffffff;
+          }
+          @media (prefers-color-scheme: dark) {
+            :root {
+              --bg: #0d1a15;
+              --fg: #e8efe9;
+              --card: #142520;
+              --field: #0f1c17;
+              --border: #2a413a;
+              --muted: #9db3aa;
+              --accent: #0ebcaa;
+              --accent-fg: #06201a;
+            }
           }
           * { box-sizing: border-box; }
-          body {
-            margin: 0;
-            font-family: system-ui, sans-serif;
-            line-height: 1.7;
-            background: var(--paper);
-            color: var(--ink);
-            -webkit-font-smoothing: antialiased;
-          }
-          .wrap { max-width: 560px; margin: 0 auto; padding: 24px 16px 72px; }
-
-          /* ---- 文字 ---- */
-          .brand {
-            font-family: var(--title);
-            font-size: 22px;
-          }
-          .display {
-            font-size: 36px;
-            font-weight: 700;
-            line-height: 1.3;
-            text-align: center;
-            word-break: break-word;
-          }
-          h2 {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--ink-soft);
-            margin: 0 0 12px;
-          }
-          .muted { color: var(--ink-soft); font-size: 13px; }
-          .lead { font-size: 15px; }
-
-          /* ---- 面 ---- */
-          .card {
-            background: var(--canvas);
-            border: 1px solid var(--paper-deep);
-            border-radius: 16px;
-            padding: 18px 18px;
-            margin: 14px 0;
-          }
-          .card.accent { border-color: var(--hero); box-shadow: 0 0 0 3px var(--hero-soft); }
-          .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-          .center { justify-content: center; }
-          .spacer { flex: 1; }
-
-          /* ---- 入力 ---- */
-          input {
-            font-family: inherit;
-            font-size: 16px;
-            padding: 11px 13px;
-            border: 1.5px solid var(--paper-strong);
-            border-radius: 12px;
-            background: var(--canvas);
-            color: var(--ink);
-          }
-          input:focus { outline: none; border-color: var(--hero); }
-          input::placeholder { color: var(--ink-mute); }
+          body { font-family: system-ui, sans-serif; margin: 0; line-height: 1.6;
+                 background: var(--bg); color: var(--fg); }
+          .wrap { max-width: 640px; margin: 0 auto; padding: 20px 16px 64px; }
+          /* タイトルだけ専用フォント。それ以外は system-ui のまま。 */
+          h1 { font-size: 18px; margin: 0; font-family: "Dela Gothic One", system-ui, sans-serif; }
+          h2 { font-size: 13px; margin: 0 0 10px; color: var(--muted);
+               font-weight: 700; letter-spacing: .04em; }
+          .card { background: var(--card); border: 1px solid var(--border);
+                  border-radius: 12px; padding: 14px 16px; margin: 12px 0; }
+          .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+          input, select { padding: 9px 11px; border: 1px solid var(--border);
+                          border-radius: 8px; font-size: 15px; font-family: inherit;
+                          background: var(--field); color: var(--fg); }
+          input::placeholder { color: var(--muted); opacity: 1; }
           input[type="text"] { flex: 1; min-width: 140px; }
-          input[type="number"] { width: 88px; }
-          input:disabled { background: var(--paper); color: var(--ink-mute); }
-
-          /* ---- ボタン ---- */
-          button {
-            font-family: inherit;
-            font-weight: 700;
-            font-size: 15px;
-            padding: 11px 18px;
-            border: 1.5px solid var(--paper-strong);
-            border-radius: 12px;
-            background: var(--canvas);
-            color: var(--ink);
-            cursor: pointer;
-            transition: transform .05s ease, border-color .12s ease;
-          }
-          button:hover:not(:disabled) { border-color: var(--hero); }
-          button:active:not(:disabled) { transform: translateY(1px); }
-          button:disabled { opacity: .38; cursor: default; }
-          button.primary {
-            background: var(--hero);
-            border-color: var(--hero);
-            color: var(--canvas);
-          }
-          button.primary:hover:not(:disabled) { background: var(--spark); border-color: var(--spark); }
-          button.spark { background: var(--spark); border-color: var(--spark); color: var(--canvas); }
-          button.ghost { border-color: transparent; color: var(--ink-soft); padding: 8px 12px; }
-          button.big { font-size: 17px; padding: 14px 26px; border-radius: 14px; }
-
-          /* ---- 部品 ---- */
-          .code {
-            font-size: 15px;
-            font-weight: 700;
-            background: var(--hero-soft);
-            color: var(--flame);
-            padding: 3px 10px;
-            border-radius: 8px;
-          }
-          .chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            border: 1.5px solid var(--paper-deep);
-            border-radius: 999px;
-            padding: 4px 13px;
-            margin: 3px 5px 3px 0;
-            font-size: 14px;
-            font-weight: 500;
-          }
-          .chip.on { border-color: var(--hero); background: var(--hero-soft); color: var(--flame); }
-          .chip.host { border-color: var(--spark); color: var(--spark); font-weight: 700; }
-          .q { border-top: 1px solid var(--paper-deep); padding: 12px 0; }
-          .q:first-of-type { border-top: 0; padding-top: 0; }
-          .q .who { font-weight: 700; }
-          .ans { color: var(--ink-soft); font-size: 13px; margin-top: 2px; }
-          .team {
-            border-left: 5px solid var(--paper-deep);
-            border-radius: 6px;
-            padding: 10px 0 10px 16px;
-            margin: 14px 0;
-          }
-          .hidden-word { color: var(--ink-mute); }
+          input[type="number"] { width: 84px; }
+          button { padding: 9px 15px; border: 1px solid var(--border); border-radius: 8px;
+                   background: var(--card); color: var(--fg); font-size: 15px;
+                   font-family: inherit; cursor: pointer; }
+          button:hover:not(:disabled) { border-color: var(--accent); }
+          button.primary { background: var(--accent); border-color: var(--accent);
+                           color: var(--accent-fg); font-weight: 600; }
+          button:disabled { opacity: .4; cursor: default; }
+          .word { font-size: 36px; font-weight: 700; text-align: center;
+                  padding: 20px 0; color: var(--fg); letter-spacing: .04em; }
+          .muted { color: var(--muted); font-size: 13px; }
+          .chip { display: inline-block; border: 1px solid var(--border);
+                  border-radius: 999px; padding: 2px 11px; margin: 2px 4px 2px 0;
+                  font-size: 13px; color: var(--fg); }
+          .chip.host { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+          .q { border-top: 1px solid var(--border); padding: 9px 0; }
+          .q:first-child { border-top: 0; }
+          .q .text { color: var(--fg); }
+          code { background: var(--field); border: 1px solid var(--border);
+                 padding: 1px 7px; border-radius: 5px; font-size: 13px; }
+          .spacer { flex: 1; }
         </style>
       </head>
       <body>
