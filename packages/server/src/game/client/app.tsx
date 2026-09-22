@@ -88,17 +88,33 @@ const Entry = ({
         </div>
       </div>
 
-      {invited !== null && (
+      {invited === null ? (
+        <div class="card">
+          <h2>部屋に入る</h2>
+          <div class="row">
+            <input
+              type="text"
+              value={code}
+              placeholder="部屋コード"
+              onInput={(e: Event) =>
+                setCode((e.target as HTMLInputElement).value.toUpperCase())
+              }
+            />
+            <button
+              disabled={!ready || code.length === 0}
+              onClick={() => onEnter(code, player.trim(), null)}
+            >
+              入る
+            </button>
+          </div>
+        </div>
+      ) : (
         <div class="card">
           <h2>招待された部屋</h2>
           <div class="row">
-            <code>{invited}</code>
+            <span class="roomcode">{invited}</span>
             <span class="spacer" />
-            <button
-              class="primary"
-              disabled={!ready}
-              onClick={() => onEnter(invited, player.trim(), null)}
-            >
+            <button class="primary" disabled={!ready} onClick={() => onEnter(invited, player.trim(), null)}>
               参加する
             </button>
           </div>
@@ -106,29 +122,9 @@ const Entry = ({
       )}
 
       <div class="card">
-        <h2>部屋に入る</h2>
-        <div class="row">
-          <input
-            type="text"
-            value={code}
-            placeholder="部屋コード"
-            onInput={(e: Event) =>
-              setCode((e.target as HTMLInputElement).value.toUpperCase())
-            }
-          />
-          <button
-            disabled={!ready || code.length === 0}
-            onClick={() => onEnter(code, player.trim(), null)}
-          >
-            入る
-          </button>
-        </div>
-      </div>
-
-      <div class="card">
         <h2>部屋を建てる</h2>
         <div class="row">
-          <button class="primary" disabled={!ready} onClick={create}>
+          <button class={invited === null ? "primary" : ""} disabled={!ready} onClick={create}>
             新しい部屋を作る
           </button>
           <button onClick={() => setOpen(!open)}>
