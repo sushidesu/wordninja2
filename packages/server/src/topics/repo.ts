@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, isNull } from "drizzle-orm";
 import { FOLD, normalizeRating, sourceKind } from "./config";
 import { cosineDistance } from "./distance";
 import type { Db } from "../db";
@@ -296,4 +296,35 @@ export async function getTopic(db: Db, id: string): Promise<Topic | undefined> {
     .from(evaluations)
     .where(eq(evaluations.topicId, id));
   return assemble(t, ws, evs);
+}
+
+// ---- ゲームへの供給 ----
+
+// 採用済みプールのうち、ちょうど wordCount 語のお題。
+// 現在の検証済みプールはペアのみなので、3語以上は空になる。
+async function acceptedWordSets(db: Db, wordCount: number): Promise<string[][]> {
+  const rows = await db
+    .select({ topicId: words.topicId, text: words.text })
+    .from(words)
+    .innerJoin(topics, eq(topics.id, words.topicId))
+    .where(gte(topics.score, FOLD.threshold));
+  const byTopic = new Map<string, string[]>();
+  for (const r of rows) {
+    byTopic.set(r.topicId, [...(byTopic.get(r.topicId) ?? []), r.text]);
+  }
+  return [...byTopic.values()].filter((ws) => ws.length === wordCount);
+}
+
+/** 配れるお題が何件あるか。クライアントが「自動」を出せるかの判断に使う。 */
+export async function countAcceptedTopics(db: Db, wordCount: number): Promise<number> {
+  return (await acceptedWordSets(db, wordCount)).length;
+}
+
+/** 採用済みプールからランダムに1つ。該当が無ければ undefined。 */
+export async function randomAcceptedWords(
+  db: Db,
+  wordCount: number,
+): Promise<string[] | undefined> {
+  const sets = await acceptedWordSets(db, wordCount);
+  return sets.length === 0 ? undefined : sets[Math.floor(Math.random() * sets.length)];
 }

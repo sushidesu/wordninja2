@@ -16,7 +16,9 @@ const ANSWER_LABELS: Record<Answer, string> = {
 };
 
 type Settings = { teamCount: number; maxPlayers: number };
-type Connection = { send: (action: Action) => void };
+/** dealAuto は規則ではなく transport のメッセージ。サーバーが deal に変換する。 */
+type ClientMessage = Action | { type: "dealAuto"; by: string };
+type Connection = { send: (message: ClientMessage) => void };
 
 const useRoom = (code: string, player: string) => {
   const [view, setView] = useState<PlayerView | null>(null);
@@ -40,7 +42,7 @@ const useRoom = (code: string, player: string) => {
   return {
     view,
     rejected,
-    conn: { send: (a: Action) => socket.current?.send(JSON.stringify(a)) },
+    conn: { send: (m: ClientMessage) => socket.current?.send(JSON.stringify(m)) },
   };
 };
 
@@ -151,7 +153,19 @@ const Lobby = ({
   conn: Connection;
 }) => {
   const [words, setWords] = useState<Record<string, string>>({});
+  const [auto, setAuto] = useState(true);
+  // 在庫はサーバーにしか分からないので問い合わせる。0 なら自動は出せない。
+  const [stock, setStock] = useState<number | null>(null);
   const isHost = view.host === player;
+  useEffect(() => {
+    if (!isHost) return;
+    fetch(`/api/game/topics/available?words=${view.teamCount}`)
+      .then((r) => r.json() as Promise<{ count: number }>)
+      .then(({ count }) => {
+        setStock(count);
+        if (count === 0) setAuto(false);
+      });
+  }, [isHost, view.teamCount]);
   const isPlayer = view.players.includes(player);
   const filled = view.players.every((p) => (words[p] ?? "").trim().length > 0);
   const kinds = new Set(view.players.map((p) => (words[p] ?? "").trim()).filter(Boolean));
@@ -196,6 +210,37 @@ const Lobby = ({
       {isHost && view.players.length >= 2 && (
         <div class="card">
           <h2>お題を配る</h2>
+          <div class="row" style="margin-bottom:12px">
+            <button
+              class={auto ? "primary" : ""}
+              disabled={stock === 0}
+              onClick={() => setAuto(true)}
+            >
+              自動
+            </button>
+            <button class={auto ? "" : "primary"} onClick={() => setAuto(false)}>
+              手動
+            </button>
+            {stock === 0 && (
+              <span class="muted">{view.teamCount} 語のお題は未登録です</span>
+            )}
+          </div>
+
+          {auto ? (
+            <div>
+              <div class="muted" style="margin-bottom:12px">
+                採用済みのお題 {stock ?? "…"} 件から {view.teamCount} 語を選んで配ります。
+                ホストにも中身は見えません。
+              </div>
+              <button
+                class="primary"
+                onClick={() => conn.send({ type: "dealAuto", by: player })}
+              >
+                配って開始
+              </button>
+            </div>
+          ) : (
+            <div>
           <div class="muted" style="margin-bottom:10px">
             同じ語を持つ人が仲間。語の種類はちょうど {view.teamCount} 種類にする。
           </div>
@@ -231,6 +276,8 @@ const Lobby = ({
               <span class="muted">いまは {kinds.size} 種類</span>
             )}
           </div>
+            </div>
+          )}
         </div>
       )}
 
