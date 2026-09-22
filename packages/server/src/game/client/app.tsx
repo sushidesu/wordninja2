@@ -172,10 +172,12 @@ const Entry = ({
 const Lobby = ({
   view,
   player,
+  code,
   conn,
 }: {
   view: PlayerView;
   player: string;
+  code: string;
   conn: Connection;
 }) => {
   const [words, setWords] = useState<Record<string, string>>({});
@@ -202,6 +204,15 @@ const Lobby = ({
 
   return (
     <div>
+      <div class="card">
+        <h2>この部屋に招待する</h2>
+        <div class="row">
+          <span class="roomcode">{code}</span>
+          <span class="spacer" />
+          <Invite code={code} />
+        </div>
+      </div>
+
       <div class="card">
         <h2>参加者 {view.players.length} / {view.maxPlayers}</h2>
         {view.players.length === 0 ? (
@@ -688,7 +699,9 @@ const Room = ({
         />
       )}
 
-      {view.phase === "lobby" && <Lobby view={view} player={player} conn={conn} />}
+      {view.phase === "lobby" && (
+        <Lobby view={view} player={player} code={code} conn={conn} />
+      )}
       {view.phase === "assignment" && (
         <Assignment view={view} player={player} conn={conn} />
       )}

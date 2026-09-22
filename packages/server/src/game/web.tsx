@@ -68,6 +68,7 @@ export const GamePage = () =>
           .word { font-size: 36px; font-weight: 700; text-align: center;
                   padding: 20px 0; color: var(--fg); letter-spacing: .04em; }
           .muted { color: var(--muted); font-size: 13px; }
+          .roomcode { font-size: 26px; font-weight: 700; }
           .chip { display: inline-block; border: 1px solid var(--border);
                   border-radius: 999px; padding: 2px 11px; margin: 2px 4px 2px 0;
                   font-size: 13px; color: var(--fg); }
