@@ -240,7 +240,7 @@ const Lobby = ({
         </div>
       )}
 
-      {isHost && <Settings view={view} player={player} conn={conn} />}
+
     </div>
   );
 };
@@ -250,12 +250,13 @@ const Settings = ({
   view,
   player,
   conn,
+  onClose,
 }: {
   view: PlayerView;
   player: string;
   conn: Connection;
+  onClose: () => void;
 }) => {
-  const [open, setOpen] = useState(false);
   const [teamCount, setTeamCount] = useState(view.teamCount);
   const [maxPlayers, setMaxPlayers] = useState(view.maxPlayers);
   return (
@@ -263,10 +264,9 @@ const Settings = ({
       <div class="row">
         <h2 style="margin:0">部屋設定</h2>
         <span class="spacer" />
-        <button onClick={() => setOpen(!open)}>{open ? "閉じる" : "変更"}</button>
+        <button onClick={onClose}>閉じる</button>
       </div>
-      {open && (
-        <div style="margin-top:12px">
+      <div style="margin-top:12px">
           <div class="row" style="margin-bottom:8px">
             <span style="min-width:96px">お題の種類</span>
             <input type="number" min="2" max="4" value={String(teamCount)}
@@ -277,12 +277,14 @@ const Settings = ({
             <input type="number" min="2" max="16" value={String(maxPlayers)}
               onInput={(e: Event) => setMaxPlayers(Number((e.target as HTMLInputElement).value))} />
           </div>
-          <button class="primary"
-            onClick={() => conn.send({ type: "configure", by: player, teamCount, maxPlayers })}>
-            適用
-          </button>
-        </div>
-      )}
+        <button class="primary"
+          onClick={() => {
+            conn.send({ type: "configure", by: player, teamCount, maxPlayers });
+            onClose();
+          }}>
+          適用
+        </button>
+      </div>
     </div>
   );
 };
@@ -329,6 +331,13 @@ const Assignment = ({
               {done ? "確認済み" : "確認した"}
             </button>
             {!seen && !done && <span class="muted">お題を見てください</span>}
+          </div>
+        )}
+        {view.host === player && (
+          <div class="row" style="margin-top:10px">
+            <button onClick={() => conn.send({ type: "goto", phase: "lobby" })}>
+              配り直す
+            </button>
           </div>
         )}
       </div>
@@ -443,6 +452,14 @@ const Playing = ({
         </div>
       )}
 
+      {view.host === player && !view.solved && (
+        <div class="row" style="justify-content:center; margin:14px 0">
+          <button onClick={() => conn.send({ type: "goto", phase: "reveal" })}>
+            答え合わせをする
+          </button>
+        </div>
+      )}
+
       {view.questions.length > 0 && (
         <div class="card">
           <h2>これまでの質問</h2>
@@ -466,19 +483,37 @@ const Playing = ({
   );
 };
 
-const Reveal = ({ view }: { view: PlayerView }) => (
-  <div class="card">
-    <h2>答え合わせ</h2>
-    {(view.revealed ?? []).map((w) => (
-      <div class="q">
-        <span class="text" style="font-weight:700">
-          {w.word}
-        </span>{" "}
-        — {w.player}
+const Reveal = ({ view, conn }: { view: PlayerView; conn: Connection }) => {
+  // 同じ語を持つ人がチーム。語ごとにまとめて出す。
+  const byWord = new Map<string, string[]>();
+  for (const w of view.revealed ?? []) {
+    byWord.set(w.word, [...(byWord.get(w.word) ?? []), w.player]);
+  }
+  return (
+    <div>
+      <div class="card">
+        <h2>答え合わせ</h2>
+        {[...byWord.entries()].map(([word, members]) => (
+          <div class="q">
+            <div class="word" style="padding:8px 0; font-size:26px">
+              {word}
+            </div>
+            <div style="text-align:center">
+              {members.map((m) => (
+                <span class="chip">{m}</span>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
-    ))}
-  </div>
-);
+      <div class="row" style="justify-content:center">
+        <button class="primary" onClick={() => conn.send({ type: "goto", phase: "lobby" })}>
+          もう一度プレイする
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Room = ({
   code,
@@ -491,7 +526,8 @@ const Room = ({
   settings: Settings | null;
   onLeave: () => void;
 }) => {
-  const { view, rejected, conn } = useRoom(code, player);
+  const { view, conn } = useRoom(code, player);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const setup = useRef(false);
 
   // 接続したら自動で参加する。最初の参加者がホストになるので、
@@ -527,7 +563,6 @@ const Room = ({
 
   if (view === null) return <div class="card">接続中…</div>;
 
-  const phases = ["lobby", "assignment", "playing", "reveal"] as const;
   return (
     <div>
       <div class="row" style="margin-bottom:8px">
@@ -537,8 +572,27 @@ const Room = ({
           {view.spectators.includes(player) ? "（観戦）" : ""}
         </span>
         <span class="spacer" />
-        <button onClick={onLeave}>退出</button>
+        {view.host === player && (
+          <button onClick={() => setSettingsOpen(!settingsOpen)}>設定</button>
+        )}
+        <button
+          onClick={() => {
+            conn.send({ type: "leave", player });
+            onLeave();
+          }}
+        >
+          退出
+        </button>
       </div>
+
+      {settingsOpen && view.host === player && (
+        <Settings
+          view={view}
+          player={player}
+          conn={conn}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       {view.phase === "lobby" && <Lobby view={view} player={player} conn={conn} />}
       {view.phase === "assignment" && (
@@ -548,26 +602,7 @@ const Room = ({
         <MyWord word={view.myWord} />
       )}
       {view.phase === "playing" && <Playing view={view} player={player} conn={conn} />}
-      {view.phase === "reveal" && <Reveal view={view} />}
-
-      <div class="card">
-        <h2>フェーズ</h2>
-        <div class="row">
-          {phases.map((p) => (
-            <button
-              class={p === view.phase ? "primary" : ""}
-              onClick={() => conn.send({ type: "goto", phase: p })}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-        {rejected > 0 && (
-          <div class="muted" style="margin-top:8px">
-            拒否された操作: {rejected} 件
-          </div>
-        )}
-      </div>
+      {view.phase === "reveal" && <Reveal view={view} conn={conn} />}
     </div>
   );
 };
