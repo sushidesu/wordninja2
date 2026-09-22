@@ -1,13 +1,11 @@
+// 公開する Worker。エンドユーザーが触れるのはここだけ。
 {
-  "name": "wordninja-server",
-  "main": "src/index.ts",
+  "name": "wordninja-game",
+  "main": "src/game-worker.ts",
   "compatibility_date": "2026-06-27",
   // クライアントのバンドル(public/game/client.js)を配る。
   "assets": {
     "directory": "./public",
-  },
-  "ai": {
-    "binding": "AI",
   },
   "durable_objects": {
     "bindings": [
@@ -24,6 +22,7 @@
       "storage": "sqlite",
     },
   },
+  // 採用済みお題を読むためだけに使う。書き込みはしない。
   "d1_databases": [
     {
       "binding": "DB",

@@ -1,14 +1,13 @@
 import { Hono } from "hono";
-import { game } from "./game/api";
-import { GamePage } from "./game/web";
-import type { RoomDO } from "./game/room-do";
 import { api } from "./topics/api";
 import { isValidRating, WORDS_PER_TOPIC } from "./topics/config";
 import { createDb } from "./db";
 import * as repo from "./topics/repo";
 import { ReviewPage, TopicDetailPage, TopicsListPage } from "./topics/views";
 
-type Bindings = { DB: D1Database; AI: Ai; ROOM: DurableObjectNamespace<RoomDO> };
+// お題工房の Worker。叩くのは人と LLM だけなので公開しない。
+// リモート D1 に対してローカルから動かす前提で、deploy はしない。
+type Bindings = { DB: D1Database; AI: Ai };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
@@ -22,11 +21,6 @@ const field = (body: Record<string, string | File>, key: string): string =>
   typeof body[key] === "string" ? body[key] : "";
 
 app.route("/api", api);
-app.route("/api/game", game);
-
-app.get("/game", (c) => c.html(GamePage()));
-// 招待リンク。部屋コードは URL に載せるだけで、返すページは同じ。
-app.get("/game/:code", (c) => c.html(GamePage()));
 
 // ---- 人間用 Web UI（SSR + フォームPOST。/review は人間用クライアント）----
 
@@ -97,7 +91,5 @@ app.post("/evaluations/:id/delete", async (c) => {
   await repo.deleteEvaluation(createDb(c.env.DB), Number(c.req.param("id")));
   return c.redirect(c.req.header("referer") ?? "/", 303);
 });
-
-export { RoomDO } from "./game/room-do";
 
 export default app;
