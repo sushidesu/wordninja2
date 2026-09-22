@@ -156,6 +156,36 @@ theorem deal_clears_confirmations {r r' : Room} {by_ first : PlayerId}
   · have hr := Option.some.inj h; subst hr; simp
   · simp at h
 
+/-- **離脱**: 抜けた人にホストは残らない。 -/
+theorem leave_transfers_host {r r' : Room} {p : PlayerId}
+    (h : step r (Action.leave p) = some r') : r'.host ≠ some p := by
+  simp only [step] at h
+  split at h
+  · have hr := Option.some.inj h
+    subst hr
+    by_cases hc : r.host = some p
+    · simp only [hc]
+      intro hh
+      have : p ∈ r.players.filter (fun q => q != p) := List.mem_of_mem_head? hh
+      simp [List.mem_filter] at this
+    · simpa [hc] using hc
+  · simp at h
+
+/-- **離脱**: 抜けた人に手番は残らない。 -/
+theorem leave_moves_turn {r r' : Room} {p : PlayerId}
+    (h : step r (Action.leave p) = some r') : r'.turn ≠ some p := by
+  simp only [step] at h
+  split at h
+  · have hr := Option.some.inj h
+    subst hr
+    by_cases hc : r.turn = some p
+    · simp only [hc]
+      cases hn : nextAfter r.players p with
+      | none => simp
+      | some q => by_cases hq : q = p <;> simp [hq]
+    · simpa [hc] using hc
+  · simp at h
+
 /-- **同席プレイの成立**: 質問を記録せずに答え合わせへ到達できる。
     口頭で進行するプレイがサーバーの進行モデルを通る。 -/
 theorem verbal_play_reaches_reveal :

@@ -216,6 +216,42 @@ test("確認: 配り直すと白紙に戻る", () => {
   assert.deepEqual(room.confirmed, []);
 });
 
+test("離脱: 抜けた人にホストと手番が取り残されない", () => {
+  const room = run(
+    run(emptyRoom(), [
+      { type: "join", player: "a" },
+      { type: "join", player: "b" },
+      { type: "join", player: "c" },
+      {
+        type: "deal",
+        by: "a",
+        firstAsker: "a",
+        words: [
+          { player: "a", word: "サラダ" },
+          { player: "b", word: "刺身" },
+          { player: "c", word: "サラダ" },
+        ],
+      },
+    ]),
+    [{ type: "goto", phase: "playing" }],
+  );
+  assert.equal(room.host, "a");
+  assert.equal(room.turn, "a");
+  const left = applyAction(room, { type: "leave", player: "a" })!;
+  assert.deepEqual(left.players, ["b", "c"]);
+  assert.equal(left.host, "b");
+  assert.equal(left.turn, "b");
+  // 残った人は質問できる（手番が宙に浮かない）
+  assert.ok(applyAction(left, { type: "ask", asker: "b", text: "x" }) !== null);
+});
+
+test("離脱: 最後の1人が抜けたら手番は無くなる", () => {
+  const room = run(emptyRoom(), [{ type: "join", player: "a" }]);
+  const left = applyAction({ ...room, turn: "a" }, { type: "leave", player: "a" })!;
+  assert.equal(left.turn, null);
+  assert.equal(left.host, null);
+});
+
 test("ワンクッション: 正解が出ても答えは開かず、質問だけが終わる", () => {
   const room = run(dealt(), [
     { type: "goto", phase: "playing" },

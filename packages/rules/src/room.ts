@@ -105,15 +105,30 @@ export const applyAction = (room: Room, action: Action): Room | null => {
         ? { ...room, spectators: [...room.spectators, action.player] }
         : null;
 
-    case "leave":
-      return room.players.includes(action.player) ||
-        room.spectators.includes(action.player)
-        ? {
-            ...room,
-            players: room.players.filter((p) => p !== action.player),
-            spectators: room.spectators.filter((p) => p !== action.player),
-          }
-        : null;
+    case "leave": {
+      // 抜けた人にホストや手番が取り残されないよう付け替える。
+      if (
+        !room.players.includes(action.player) &&
+        !room.spectators.includes(action.player)
+      ) {
+        return null;
+      }
+      const rest = room.players.filter((p) => p !== action.player);
+      const next = nextAfter(room.players, action.player);
+      return {
+        ...room,
+        players: rest,
+        spectators: room.spectators.filter((p) => p !== action.player),
+        host: room.host === action.player ? (rest[0] ?? null) : room.host,
+        turn:
+          room.turn === action.player
+            ? next === action.player
+              ? null
+              : next
+            : room.turn,
+        confirmed: room.confirmed.filter((p) => p !== action.player),
+      };
+    }
 
     case "configure":
       // いつでも変えられる(部屋を建て直さずに人数やルールを変えるため)。

@@ -175,10 +175,19 @@ def step (r : Room) : Action → Option Room
         some { r with spectators := r.spectators ++ [p] }
       else none
   | .leave p =>
+      -- 抜けた人にホストや手番が取り残されないよう付け替える。
       if p ∈ r.players ∨ p ∈ r.spectators then
+        let rest := r.players.filter (fun q => q != p)
         some { r with
-          players := r.players.filter (fun q => q != p)
-          spectators := r.spectators.filter (fun q => q != p) }
+          players := rest
+          spectators := r.spectators.filter (fun q => q != p)
+          host := if r.host = some p then rest.head? else r.host
+          turn := if r.turn = some p then
+                    (match nextAfter r.players p with
+                     | some q => if q = p then none else some q
+                     | none => none)
+                  else r.turn
+          confirmed := r.confirmed.filter (fun q => q != p) }
       else none
   | .configure by_ tc mp =>
       if r.host = some by_ ∧ 2 ≤ tc ∧ tc ≤ 4 ∧ r.players.length ≤ mp then
