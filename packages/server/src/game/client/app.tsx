@@ -67,7 +67,7 @@ const Entry = ({
 
   return (
     <div>
-      <div class="display" style="font-size:34px; margin: 8px 0 22px">ワードニンジャ</div>
+      <div class="brand" style="font-size:32px; margin: 8px 0 22px">ワードニンジャ</div>
       <div class="card">
         <h2>あなたの名前</h2>
         <div class="row">

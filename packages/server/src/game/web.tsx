@@ -2,8 +2,9 @@ import { html } from "hono/html";
 
 // クライアント(hono/jsx/dom)を載せるだけの殻。進行の表示は全部クライアント側。
 //
-// 配色とフォントは packages/mobile の "Leaf Pop" テーマ(白キャンバスにグリーンを
-// 主役、ティールを一点挿し)に合わせている。同じゲームなので見た目を揃える。
+// 配色は packages/mobile の "Leaf Pop" テーマ(白キャンバスにグリーンを主役、
+// ティールを一点挿し)に合わせている。同じゲームなので見た目を揃える。
+// 専用フォント(Dela Gothic One)はタイトルだけに使い、それ以外は system-ui。
 // mobile 側にダークモードが無いため、ここでも light 固定にする。色はトークンで
 // 持ち、生の hex は :root だけに置く(mobile の theme.ts と同じ方針)。
 export const GamePage = () =>
@@ -16,7 +17,7 @@ export const GamePage = () =>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link
-          href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+1:wght@400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&display=swap"
           rel="stylesheet"
         />
         <style>
@@ -43,14 +44,13 @@ export const GamePage = () =>
             --split-3: #fb7185;
             --split-4: #818cf8;
 
+            /* タイトルだけ専用フォント。それ以外は本文と同じ系。 */
             --title: "Dela Gothic One", system-ui, sans-serif;
-            --body: "M PLUS 1", system-ui, sans-serif;
           }
           * { box-sizing: border-box; }
           body {
             margin: 0;
-            font-family: var(--body);
-            font-weight: 400;
+            font-family: system-ui, sans-serif;
             line-height: 1.7;
             background: var(--paper);
             color: var(--ink);
@@ -62,22 +62,17 @@ export const GamePage = () =>
           .brand {
             font-family: var(--title);
             font-size: 22px;
-            letter-spacing: .02em;
-            margin: 0;
           }
           .display {
-            font-family: var(--title);
-            font-size: 40px;
-            line-height: 1.25;
+            font-size: 36px;
+            font-weight: 700;
+            line-height: 1.3;
             text-align: center;
-            letter-spacing: .04em;
             word-break: break-word;
           }
           h2 {
-            font-family: var(--body);
+            font-size: 13px;
             font-weight: 700;
-            font-size: 12px;
-            letter-spacing: .12em;
             color: var(--ink-soft);
             margin: 0 0 12px;
           }
@@ -99,7 +94,7 @@ export const GamePage = () =>
 
           /* ---- 入力 ---- */
           input {
-            font-family: var(--body);
+            font-family: inherit;
             font-size: 16px;
             padding: 11px 13px;
             border: 1.5px solid var(--paper-strong);
@@ -115,7 +110,7 @@ export const GamePage = () =>
 
           /* ---- ボタン ---- */
           button {
-            font-family: var(--body);
+            font-family: inherit;
             font-weight: 700;
             font-size: 15px;
             padding: 11px 18px;
@@ -141,12 +136,11 @@ export const GamePage = () =>
 
           /* ---- 部品 ---- */
           .code {
-            font-family: var(--title);
             font-size: 15px;
-            letter-spacing: .22em;
+            font-weight: 700;
             background: var(--hero-soft);
             color: var(--flame);
-            padding: 3px 4px 3px 12px;
+            padding: 3px 10px;
             border-radius: 8px;
           }
           .chip {
@@ -172,7 +166,7 @@ export const GamePage = () =>
             padding: 10px 0 10px 16px;
             margin: 14px 0;
           }
-          .hidden-word { color: var(--ink-mute); letter-spacing: .3em; }
+          .hidden-word { color: var(--ink-mute); }
         </style>
       </head>
       <body>
